@@ -10,9 +10,13 @@ class Setting extends BaseController
 
     public function __construct()
     {
+        // Inisialisasi koneksi database
         $this->db = \Config\Database::connect();
     }
 
+    /**
+     * Menampilkan halaman pengaturan
+     */
     public function index()
     {
         $rawSettings = $this->db->table('settings')->get()->getResultArray();
@@ -30,15 +34,19 @@ class Setting extends BaseController
         return view('backend/settings', $data);
     }
 
+    /**
+     * Memperbarui pengaturan website
+     */
     public function update()
     {
         $postData = $this->request->getPost();
 
-        // Array untuk menampung data lama dan baru khusus untuk Audit Log
+        // Data untuk pencatatan Audit Log
         $oldValuesLog = [];
         $newValuesLog = [];
+        $berhasilDiupdate = 0;
 
-        // --- PROSES UPLOAD GAMBAR YANG SUDAH ADA SEBELUMNYA ---
+        // Daftar file yang diproses dan foldernya
         $filesToProcess = [
             'logo_image'           => 'uploads/logo',
             'hero_image'           => 'uploads/hero',
@@ -51,81 +59,99 @@ class Setting extends BaseController
             'profil_kepsek_image'  => 'uploads/hero'
         ];
 
+        // --- Task 2.3: Menggunakan Database Transaction ---
+        $this->db->transStart();
+
+        // 1. Pemrosesan Upload Gambar
         foreach ($filesToProcess as $inputName => $folder) {
             $file = $this->request->getFile($inputName);
 
             if ($file && $file->isValid() && !$file->hasMoved()) {
-                $aturanValidasi = [
+                // Validasi tipe file gambar
+                $validationRule = [
                     $inputName => "is_image[{$inputName}]|mime_in[{$inputName},image/webp,image/png,image/jpeg,image/jpg]"
                 ];
 
-                if ($this->validate($aturanValidasi)) {
-                    $oldData = $this->db->table('settings')->where('setting_key', $inputName)->get()->getRowArray();
+                if ($this->validate($validationRule)) {
+                    // Ambil data lama untuk dihapus filenya
+                    $existing = $this->db->table('settings')->where('setting_key', $inputName)->get()->getRowArray();
 
-                    if ($oldData && !empty($oldData['setting_value']) && file_exists(FCPATH . $folder . '/' . $oldData['setting_value'])) {
-                        unlink(FCPATH . $folder . '/' . $oldData['setting_value']);
+                    if ($existing && !empty($existing['setting_value'])) {
+                        // Task 2.2: Gunakan fungsi DRY untuk hapus file fisik
+                        $this->hapusFileLama($folder, $existing['setting_value']);
                     }
 
                     $newName = $file->getRandomName();
                     $file->move(FCPATH . $folder, $newName);
 
-                    // Masukkan nama file baru ke postData agar ikut diproses di loop bawah
+                    // Masukkan ke postData agar ikut diproses di loop update database
                     $postData[$inputName] = $newName;
                 } else {
-                    return redirect()->back()->withInput()->with('error', "Gagal mengunggah gambar {$inputName}. File tidak valid.");
+                    $this->db->transRollback();
+                    return redirect()->back()->withInput()->with('error', "Gagal mengunggah {$inputName}. Format file tidak didukung.");
                 }
             }
         }
 
-        $berhasilDiupdate = 0;
-
-        // Loop untuk mengecek setiap data yang dikirimkan
+        // 2. Update Database (Text & Nama File Baru)
         foreach ($postData as $key => $value) {
-            if ($key !== csrf_token()) {
+            // Abaikan token CSRF
+            if ($key === csrf_token()) continue;
 
-                $existing = $this->db->table('settings')->where('setting_key', $key)->get()->getRowArray();
+            $existing = $this->db->table('settings')->where('setting_key', $key)->get()->getRowArray();
 
-                if ($existing) {
-                    // Hanya lakukan update dan pencatatan log JIKA nilainya benar-benar berubah
-                    if ($existing['setting_value'] !== $value) {
-
-                        // Catat ke array log
-                        $oldValuesLog[$key] = $existing['setting_value'];
-                        $newValuesLog[$key] = $value;
-
-                        // Update ke database
-                        $this->db->table('settings')
-                            ->where('setting_key', $key)
-                            ->update([
-                                'setting_value' => $value,
-                                'updated_at'    => date('Y-m-d H:i:s')
-                            ]);
-                        $berhasilDiupdate++;
-                    }
-                } else {
-                    // Jika data belum ada (Insert Baru)
-                    $oldValuesLog[$key] = null;
+            if ($existing) {
+                // Hanya update jika nilainya berubah
+                if ($existing['setting_value'] !== $value) {
+                    $oldValuesLog[$key] = $existing['setting_value'];
                     $newValuesLog[$key] = $value;
 
-                    $this->db->table('settings')->insert([
-                        'setting_group' => 'general',
-                        'setting_key'   => $key,
-                        'setting_value' => $value,
-                        'created_at'    => date('Y-m-d H:i:s'),
-                        'updated_at'    => date('Y-m-d H:i:s')
-                    ]);
+                    $this->db->table('settings')
+                        ->where('setting_key', $key)
+                        ->update([
+                            'setting_value' => $value,
+                            'updated_at'    => date('Y-m-d H:i:s')
+                        ]);
                     $berhasilDiupdate++;
                 }
+            } else {
+                // Jika key baru (Insert)
+                $oldValuesLog[$key] = null;
+                $newValuesLog[$key] = $value;
+
+                $this->db->table('settings')->insert([
+                    'setting_group' => 'general',
+                    'setting_key'   => $key,
+                    'setting_value' => $value,
+                    'created_at'    => date('Y-m-d H:i:s'),
+                    'updated_at'    => date('Y-m-d H:i:s')
+                ]);
+                $berhasilDiupdate++;
             }
         }
 
-        // --- SIMPAN LOG AKTIVITAS ---
-        // Jika array $newValuesLog tidak kosong (artinya ada data yang benar-benar dirubah)
+        // 3. Simpan Log Aktivitas jika ada perubahan
         if (!empty($newValuesLog)) {
-            // Catat menggunakan helper audit. record_id bernilai null karena ini tabel settings
             log_activity('UPDATE', 'settings', null, $oldValuesLog, $newValuesLog);
         }
 
-        return redirect()->to('/panel/settings')->with('success', 'Berhasil memperbarui ' . $berhasilDiupdate . ' pengaturan!');
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan saat memperbarui pengaturan.');
+        }
+
+        return redirect()->to('/panel/settings')->with('success', "Berhasil memperbarui {$berhasilDiupdate} pengaturan.");
+    }
+
+    /**
+     * Task 2.2: Fungsi DRY (Private) untuk menghapus file lama
+     */
+    private function hapusFileLama($folder, $filename)
+    {
+        $path = FCPATH . $folder . '/' . $filename;
+        if (is_file($path)) {
+            unlink($path);
+        }
     }
 }

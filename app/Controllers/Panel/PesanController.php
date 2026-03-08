@@ -14,62 +14,54 @@ class PesanController extends BaseController
         $this->pesanModel = new PesanModel();
     }
 
-    // 1. Menampilkan Daftar Kotak Masuk
     public function index()
     {
         $data = [
-            'title' => 'Kotak Masuk',
-            // Urutkan pesan dari yang paling baru
+            'title' => 'Pesan Masuk',
             'pesan' => $this->pesanModel->orderBy('created_at', 'DESC')->findAll()
         ];
-
         return view('backend/pesan/index', $data);
     }
 
-    // 2. Membaca Detail Pesan
     public function show($safeId = null)
     {
-        // Gunakan helper dekripsi dari BaseController
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
+        if (!$id) return redirect()->to('panel/pesan')->with('error', 'Akses ditolak.');
 
         $pesan = $this->pesanModel->find($id);
-        if (!$pesan) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
+        if (!$pesan) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
 
-        // Jika pesan belum dibaca, ubah statusnya jadi sudah dibaca (1)
+        // Tandai sebagai dibaca jika belum
         if ($pesan['is_read'] == 0) {
             $this->pesanModel->update($id, ['is_read' => 1]);
-
-            // 🎥 CATAT LOG: READ
-            log_activity('READ', 'pesan', $id, null, ['subject' => $pesan['subject'], 'pengirim' => $pesan['name']]);
         }
 
         return view('backend/pesan/show', [
-            'title'  => 'Baca Pesan',
-            'pesan'  => $pesan,
-            'safeId' => $safeId
+            'title' => 'Detail Pesan',
+            'pesan' => $pesan
         ]);
     }
 
-    // 3. Menghapus Pesan
     public function delete($safeId = null)
     {
-        // Gunakan helper dekripsi dari BaseController
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
+        if (!$id) return redirect()->to('panel/pesan')->with('error', 'Akses ditolak.');
 
         $pesan = $this->pesanModel->find($id);
-        if (!$pesan) {
-            return redirect()->to('/panel/pesan')->with('error', 'Pesan tidak ditemukan.');
+        if ($pesan) {
+            $this->pesanModel->db->transStart();
+
+            $this->pesanModel->delete($id);
+            log_activity('DELETE', 'pesan', $id, ['subjek' => $pesan['subjek']], null);
+
+            $this->pesanModel->db->transComplete();
+
+            if ($this->pesanModel->db->transStatus() !== false) {
+                return redirect()->to('panel/pesan')->with('success', 'Pesan berhasil dihapus.');
+            }
+            return redirect()->to('panel/pesan')->with('error', 'Gagal menghapus pesan.');
         }
 
-        $this->pesanModel->delete($id);
-
-        // 🎥 CATAT LOG: DELETE
-        log_activity('DELETE', 'pesan', $id, ['subject' => $pesan['subject'], 'pengirim' => $pesan['name']], null);
-
-        return redirect()->to('/panel/pesan')->with('success', 'Pesan berhasil dihapus.');
+        return redirect()->to('panel/pesan')->with('error', 'Data tidak ditemukan.');
     }
 }

@@ -4,7 +4,6 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
-use App\Models\RoleModel;
 
 class UserController extends BaseController
 {
@@ -13,231 +12,158 @@ class UserController extends BaseController
     public function __construct()
     {
         $this->userModel = new UserModel();
-        // helper('audit'); sudah dihapus karena otomatis dimuat dari BaseController
     }
 
-    // 1. Menampilkan Daftar Pengguna
     public function index()
     {
-        $users = $this->userModel->getUserWithRole();
-
-        return view('backend/users/index', [
-            'title' => 'Manajemen Akun',
-            'users' => $users
-        ]);
+        $data = [
+            'title' => 'Manajemen Pengguna',
+            'users' => $this->userModel->orderBy('created_at', 'DESC')->findAll()
+        ];
+        return view('backend/users/index', $data);
     }
 
-    // 2. Form Tambah Pengguna 
     public function create()
     {
-        $roleModel = new RoleModel();
-        $adminExists = $this->userModel->where('role', 'admin')->countAllResults() > 0;
-
         return view('backend/users/create', [
-            'title' => 'Tambah Pengguna',
-            'roles' => $roleModel->findAll(),
-            'adminExists' => $adminExists
+            'title' => 'Tambah User Baru'
         ]);
     }
 
-    // 3. Proses Simpan Pengguna Baru
     public function store()
     {
-        $rules = [
-            'username'     => 'required|is_unique[users.username]|alpha_numeric',
-            'nama_lengkap' => 'required|min_length[3]',
-            'email'        => 'required|valid_email|is_unique[users.email]',
-            'password'     => 'required|min_length[8]',
-            'role'         => 'required'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        $roleInput = $this->request->getPost('role');
-
-        if ($roleInput === 'admin') {
-            $adminExists = $this->userModel->where('role', 'admin')->countAllResults() > 0;
-            if ($adminExists) {
-                return redirect()->back()->withInput()->with('error', 'Sistem menolak: Hanya diizinkan memiliki 1 akun Administrator.');
-            }
+        // Validasi tambahan untuk password wajib di 'create'
+        if (empty($this->request->getPost('password'))) {
+            return redirect()->back()->withInput()->with('error', 'Password wajib diisi.');
         }
 
         $data = [
-            'username'      => $this->request->getPost('username'),
-            'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
-            'email'         => $this->request->getPost('email'),
-            'password_hash' => password_hash($this->request->getPost('password'), PASSWORD_BCRYPT),
-            'role'          => $roleInput,
-            'is_active'     => 1
+            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
+            'username'     => $this->request->getPost('username'),
+            'password'     => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+            'role'         => $this->request->getPost('role'),
+            'is_active'    => 1
         ];
 
-        $this->userModel->insert($data);
-        $insertId = $this->userModel->getInsertID(); // Ambil ID pengguna yang baru dibuat
+        $this->userModel->db->transStart();
 
-        // 🎥 CATAT LOG: CREATE
-        $logData = $data;
-        unset($logData['password_hash']); // Jangan simpan password di log
-        log_activity('CREATE', 'users', $insertId, null, $logData);
+        if (!$this->userModel->insert($data)) {
+            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        }
 
-        return redirect()->to('/panel/users')->with('success', 'Akun berhasil ditambahkan.');
+        $insertId = $this->userModel->getInsertID();
+        log_activity('CREATE', 'users', $insertId, null, ['username' => $data['username']]);
+
+        $this->userModel->db->transComplete();
+
+        if ($this->userModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan data user.');
+        }
+
+        return redirect()->to('panel/users')->with('success', 'User baru berhasil ditambahkan.');
     }
 
-    // 4. Form Edit Pengguna 
     public function edit($safeId = null)
     {
-        // Memanggil fungsi dari BaseController
         $id = $this->decryptId($safeId);
-        if (!$id) {
-            return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
+        if (!$id) return redirect()->to('panel/users')->with('error', 'Akses ditolak.');
+
+        $user = $this->userModel->find($id);
+        if (!$user) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+
+        return view('backend/users/edit', [
+            'title'  => 'Edit User',
+            'user'   => $user,
+            'safeId' => $safeId
+        ]);
+    }
+
+    public function update($safeId = null)
+    {
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('panel/users')->with('error', 'Akses ditolak.');
+
+        $userLama = $this->userModel->find($id);
+        if (!$userLama) return redirect()->to('panel/users')->with('error', 'Data tidak ditemukan.');
+
+        $data = [
+            'id'           => $id,
+            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
+            'username'     => $this->request->getPost('username'),
+            'role'         => $this->request->getPost('role'),
+        ];
+
+        // Hanya update password jika diisi
+        $passwordBaru = $this->request->getPost('password');
+        if (!empty($passwordBaru)) {
+            $data['password'] = password_hash($passwordBaru, PASSWORD_DEFAULT);
+        }
+
+        $this->userModel->db->transStart();
+
+        if (!$this->userModel->update($id, $data)) {
+            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        }
+
+        log_activity('UPDATE', 'users', $id, ['username' => $userLama['username']], ['username' => $data['username']]);
+
+        $this->userModel->db->transComplete();
+
+        if ($this->userModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data user.');
+        }
+
+        return redirect()->to('panel/users')->with('success', 'Data user berhasil diperbarui.');
+    }
+
+    public function toggleStatus($safeId = null)
+    {
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('panel/users')->with('error', 'Akses ditolak.');
+
+        $user = $this->userModel->find($id);
+        if ($user) {
+            $newStatus = ($user['is_active'] == 1) ? 0 : 1;
+            $this->userModel->update($id, ['is_active' => $newStatus]);
+
+            log_activity('UPDATE', 'users', $id, ['is_active' => $user['is_active']], ['is_active' => $newStatus]);
+
+            return redirect()->to('panel/users')->with('success', 'Status user berhasil diubah.');
+        }
+
+        return redirect()->to('panel/users')->with('error', 'User tidak ditemukan.');
+    }
+
+    public function delete($safeId = null)
+    {
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('panel/users')->with('error', 'Akses ditolak.');
+
+        // Proteksi agar admin tidak menghapus dirinya sendiri
+        if ($id == session()->get('user_id')) {
+            return redirect()->to('panel/users')->with('error', 'Anda tidak dapat menghapus akun sendiri.');
         }
 
         $user = $this->userModel->find($id);
-        if (!$user) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
+        if ($user) {
+            $this->userModel->db->transStart();
 
-        $roleModel = new RoleModel();
-        $adminExists = $this->userModel->where('role', 'admin')->countAllResults() > 0;
+            $this->userModel->delete($id);
+            log_activity('DELETE', 'users', $id, ['username' => $user['username']], null);
 
-        return view('backend/users/edit', [
-            'title'       => 'Edit Pengguna',
-            'user'        => $user,
-            'roles'       => $roleModel->findAll(),
-            'adminExists' => $adminExists,
-            'safeId'      => $safeId
-        ]);
-    }
+            $this->userModel->db->transComplete();
 
-    // 5. Proses Update Pengguna 
-    public function update($safeId = null)
-    {
-        // Memanggil fungsi dari BaseController
-        $id = $this->decryptId($safeId);
-        if (!$id) {
-            return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
-        }
-
-        $userTarget = $this->userModel->find($id);
-        if (!$userTarget) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
-
-        $rules = [
-            'username'     => "required|alpha_numeric|is_unique[users.username,id,{$id}]",
-            'nama_lengkap' => 'required|min_length[3]',
-            'email'        => "required|valid_email|is_unique[users.email,id,{$id}]",
-            'role'         => 'required'
-        ];
-
-        if ($this->request->getPost('password')) {
-            $rules['password'] = 'min_length[8]';
-        }
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        $roleInput = $this->request->getPost('role');
-        $isSelf = session()->get('user_id') == $id;
-        $isAdmin = $userTarget['role'] === 'admin';
-
-        if ($isSelf || $isAdmin) {
-            $roleInput = $userTarget['role'];
-        }
-
-        if ($roleInput === 'admin' && !$isAdmin) {
-            $adminExists = $this->userModel->where('role', 'admin')->countAllResults() > 0;
-            if ($adminExists) {
-                return redirect()->back()->withInput()->with('error', 'Sistem menolak: Tidak bisa menaikkan akun menjadi Administrator karena kuota Admin (1) sudah penuh.');
+            if ($this->userModel->db->transStatus() !== false) {
+                // Task: Hapus file avatar fisik jika ada
+                if (!empty($user['avatar'])) {
+                    $path = FCPATH . 'uploads/avatars/' . $user['avatar'];
+                    if (is_file($path)) unlink($path);
+                }
+                return redirect()->to('panel/users')->with('success', 'User berhasil dihapus.');
             }
+            return redirect()->to('panel/users')->with('error', 'Terjadi kesalahan sistem.');
         }
 
-        $data = [
-            'username'     => $this->request->getPost('username'),
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'email'        => $this->request->getPost('email'),
-            'role'         => $roleInput,
-        ];
-
-        if ($this->request->getPost('password')) {
-            $data['password_hash'] = password_hash($this->request->getPost('password'), PASSWORD_BCRYPT);
-        }
-
-        $this->userModel->update($id, $data);
-
-        // 🎥 CATAT LOG: UPDATE
-        $oldData = $userTarget;
-        unset($oldData['password_hash'], $oldData['created_at'], $oldData['updated_at']); // Bersihkan data log
-        $newData = $data;
-        unset($newData['password_hash']);
-        log_activity('UPDATE', 'users', $id, $oldData, $newData);
-
-        return redirect()->to('/panel/users')->with('success', 'Akun berhasil diperbarui.');
-    }
-
-    // 6. Hapus Pengguna (HARD DELETE)
-    public function delete($safeId = null)
-    {
-        // Memanggil fungsi dari BaseController
-        $id = $this->decryptId($safeId);
-        if (!$id) {
-            return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
-        }
-
-        if (session()->get('user_id') == $id) {
-            return redirect()->to('/panel/users')->with('error', 'Aksi ditolak: Anda tidak dapat menghapus akun Anda sendiri.');
-        }
-
-        $userTarget = $this->userModel->find($id);
-
-        if (!$userTarget) {
-            return redirect()->to('/panel/users')->with('error', 'Pengguna tidak ditemukan.');
-        }
-
-        if ($userTarget['role'] === 'admin') {
-            return redirect()->to('/panel/users')->with('error', 'Aksi ditolak: Akun Administrator tidak boleh dihapus.');
-        }
-
-        $this->userModel->delete($id);
-
-        // 🎥 CATAT LOG: DELETE
-        $oldData = $userTarget;
-        unset($oldData['password_hash']);
-        log_activity('DELETE', 'users', $id, $oldData, null);
-
-        return redirect()->to('/panel/users')->with('success', 'Akun berhasil dihapus permanen.');
-    }
-
-    // 7. Toggle Status (Aktif/Nonaktif)
-    public function toggleStatus($safeId = null)
-    {
-        // Memanggil fungsi dari BaseController
-        $id = $this->decryptId($safeId);
-        if (!$id) {
-            return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
-        }
-
-        $userTarget = $this->userModel->find($id);
-
-        if (session()->get('user_id') == $id) {
-            return redirect()->to('/panel/users')->with('error', 'Anda tidak bisa menonaktifkan akun Anda sendiri.');
-        }
-
-        if ($userTarget['role'] === 'admin') {
-            return redirect()->to('/panel/users')->with('error', 'Akun Administrator Utama tidak boleh dinonaktifkan.');
-        }
-
-        $newStatus = $userTarget['is_active'] == 1 ? 0 : 1;
-        $this->userModel->update($id, ['is_active' => $newStatus]);
-
-        // 🎥 CATAT LOG: TOGGLE STATUS
-        $oldData = ['is_active' => $userTarget['is_active']];
-        $newData = ['is_active' => $newStatus];
-        log_activity('TOGGLE_STATUS', 'users', $id, $oldData, $newData);
-
-        $pesan = $newStatus == 1 ? 'diaktifkan' : 'dinonaktifkan';
-        return redirect()->to('/panel/users')->with('success', "Akun berhasil $pesan.");
+        return redirect()->to('panel/users')->with('error', 'Data tidak ditemukan.');
     }
 }

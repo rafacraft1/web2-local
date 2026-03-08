@@ -10,28 +10,26 @@ class UserModel extends Model
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-
-    // Matikan Soft Delete agar menjadi Hard Delete
     protected $useSoftDeletes   = false;
 
     protected $allowedFields    = [
-        'username',
         'nama_lengkap',
-        'email',
-        'password_hash',
+        'username',
+        'password',
         'role',
         'avatar',
-        'is_active' // Daftarkan kolom is_active
+        'is_active'
     ];
 
     protected $useTimestamps = true;
     protected $updatedField  = 'updated_at';
-    // deletedField dihapus karena kita pakai Hard Delete
 
-    public function getUserWithRole()
-    {
-        return $this->select('users.*, roles.nama_role')
-            ->join('roles', 'roles.slug_role = users.role')
-            ->findAll();
-    }
+    // --- Task: Validasi dipindah ke Model (Fat Model) ---
+    protected $validationRules = [
+        'id'           => 'permit_empty|is_natural_no_zero',
+        'nama_lengkap' => 'required|min_length[3]|max_length[100]',
+        'username'     => 'required|min_length[3]|max_length[30]|is_unique[users.username,id,{id}]',
+        'password'     => 'permit_empty|min_length[6]', // permit_empty digunakan saat update jika password tidak diubah
+        'role'         => 'required|in_list[admin,operator]',
+    ];
 }

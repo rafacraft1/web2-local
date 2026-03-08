@@ -10,22 +10,18 @@ class PesanModel extends Model
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-    protected $useSoftDeletes   = false; // Hard delete untuk pesan
+    protected $useSoftDeletes   = false;
 
-    protected $allowedFields    = [
-        'name',
-        'email',
-        'subject',
-        'message',
-        'is_read'
-    ];
+    protected $allowedFields    = ['nama', 'email', 'subjek', 'pesan', 'is_read'];
 
     protected $useTimestamps = true;
     protected $updatedField  = 'updated_at';
 
-    // Fungsi tambahan untuk menghitung jumlah pesan yang belum dibaca (Berguna untuk badge di Sidebar menu nanti)
-    public function getUnreadCount()
-    {
-        return $this->where('is_read', 0)->countAllResults();
-    }
+    // Validasi dipindah ke Model untuk penggunaan di Frontend/Backend
+    protected $validationRules = [
+        'nama'   => 'required|min_length[3]|max_length[100]',
+        'email'  => 'required|valid_email',
+        'subjek' => 'required|min_length[5]|max_length[200]',
+        'pesan'  => 'required|min_length[10]',
+    ];
 }

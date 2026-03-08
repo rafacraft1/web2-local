@@ -32,28 +32,13 @@ class GaleriController extends BaseController
 
     public function store()
     {
-        $rules = [
-            'title'        => 'required|min_length[3]',
-            'description'  => 'required|max_length[255]',
-            'image_base64' => 'required'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $imageBase64 = $this->request->getPost('image_base64');
+        if (empty($imageBase64)) {
+            return redirect()->back()->withInput()->with('error', 'Gambar galeri wajib diisi.');
         }
 
         $slug = url_title($this->request->getPost('title'), '-', true);
-
-        // --- PROSES UPLOAD BASE64 DENGAN HELPER (SUPER CLEAN) ---
-        $imageBase64 = $this->request->getPost('image_base64');
         $namaGambar  = 'galeri-' . $slug . '-' . time() . '.webp';
-
-        $uploadProses = $this->processBase64Image($imageBase64, 'galeri', $namaGambar);
-
-        if (!$uploadProses['success']) {
-            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
-        }
-        // ---------------------------------------------------------
 
         $data = [
             'title'       => $this->request->getPost('title'),
@@ -61,18 +46,34 @@ class GaleriController extends BaseController
             'image'       => $namaGambar
         ];
 
-        $this->galeriModel->insert($data);
+        $this->galeriModel->db->transStart();
+
+        if (!$this->galeriModel->insert($data)) {
+            return redirect()->back()->withInput()->with('errors', $this->galeriModel->errors());
+        }
+
         $insertId = $this->galeriModel->getInsertID();
 
-        log_activity('CREATE', 'galeri', $insertId, null, ['title' => $data['title']]);
+        $uploadProses = $this->processBase64Image($imageBase64, 'galeri', $namaGambar);
+        if (!$uploadProses['success']) {
+            $this->galeriModel->db->transRollback();
+            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
+        }
 
-        return redirect()->to('/panel/galeri')->with('success', 'Foto berhasil ditambahkan ke galeri.');
+        log_activity('CREATE', 'galeri', $insertId, null, ['title' => $data['title']]);
+        $this->galeriModel->db->transComplete();
+
+        if ($this->galeriModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem.');
+        }
+
+        return redirect()->to('panel/galeri')->with('success', 'Foto berhasil ditambahkan ke galeri.');
     }
 
     public function edit($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/galeri')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/galeri')->with('error', 'Akses ditolak.');
 
         $galeri = $this->galeriModel->find($id);
         if (!$galeri) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -87,70 +88,83 @@ class GaleriController extends BaseController
     public function update($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/galeri')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/galeri')->with('error', 'Akses ditolak.');
 
         $galeriLama = $this->galeriModel->find($id);
-
-        $rules = [
-            'title'       => 'required|min_length[3]',
-            'description' => 'required|max_length[255]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
+        if (!$galeriLama) return redirect()->to('panel/galeri')->with('error', 'Data tidak ditemukan.');
 
         $slug = url_title($this->request->getPost('title'), '-', true);
-        $namaGambarFinal = $galeriLama['image'];
-
-        // --- PROSES JIKA ADA GAMBAR BARU (SUPER CLEAN) ---
         $imageBase64 = $this->request->getPost('image_base64');
+
+        $data = [
+            'id'          => $id,
+            'title'       => $this->request->getPost('title'),
+            'description' => $this->request->getPost('description'),
+            'image'       => $galeriLama['image']
+        ];
+
+        $this->galeriModel->db->transStart();
+
+        if (!$this->galeriModel->update($id, $data)) {
+            return redirect()->back()->withInput()->with('errors', $this->galeriModel->errors());
+        }
 
         if (!empty($imageBase64)) {
             $namaGambarBaru = 'galeri-' . $slug . '-' . time() . '.webp';
             $uploadProses   = $this->processBase64Image($imageBase64, 'galeri', $namaGambarBaru);
 
             if (!$uploadProses['success']) {
+                $this->galeriModel->db->transRollback();
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
 
-            // Jika berhasil upload baru, hapus gambar lama
-            if (file_exists(FCPATH . 'uploads/galeri/' . $galeriLama['image'])) {
-                unlink(FCPATH . 'uploads/galeri/' . $galeriLama['image']);
-            }
-
-            $namaGambarFinal = $namaGambarBaru; // Gunakan nama gambar yang baru
+            $this->hapusGambarFisik($galeriLama['image']);
+            $this->galeriModel->update($id, ['image' => $namaGambarBaru]);
         }
-        // -------------------------------------------------
 
-        $data = [
-            'title'       => $this->request->getPost('title'),
-            'description' => $this->request->getPost('description'),
-            'image'       => $namaGambarFinal
-        ];
-
-        $this->galeriModel->update($id, $data);
         log_activity('UPDATE', 'galeri', $id, ['title' => $galeriLama['title']], ['title' => $data['title']]);
+        $this->galeriModel->db->transComplete();
 
-        return redirect()->to('/panel/galeri')->with('success', 'Data galeri berhasil diperbarui.');
+        if ($this->galeriModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
+        }
+
+        return redirect()->to('panel/galeri')->with('success', 'Data galeri berhasil diperbarui.');
     }
 
     public function delete($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/galeri')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/galeri')->with('error', 'Akses ditolak.');
 
         $galeri = $this->galeriModel->find($id);
 
         if ($galeri) {
-            if (file_exists(FCPATH . 'uploads/galeri/' . $galeri['image'])) {
-                unlink(FCPATH . 'uploads/galeri/' . $galeri['image']);
-            }
+            $this->galeriModel->db->transStart();
+
             $this->galeriModel->delete($id);
             log_activity('DELETE', 'galeri', $id, ['title' => $galeri['title']], null);
-            return redirect()->to('/panel/galeri')->with('success', 'Foto galeri berhasil dihapus.');
+
+            $this->galeriModel->db->transComplete();
+
+            if ($this->galeriModel->db->transStatus() !== false) {
+                $this->hapusGambarFisik($galeri['image']);
+                return redirect()->to('panel/galeri')->with('success', 'Foto galeri berhasil dihapus.');
+            }
+            return redirect()->to('panel/galeri')->with('error', 'Terjadi kesalahan sistem.');
         }
 
-        return redirect()->to('/panel/galeri')->with('error', 'Data tidak ditemukan.');
+        return redirect()->to('panel/galeri')->with('error', 'Data tidak ditemukan.');
+    }
+
+    // --- Fungsi DRY untuk hapus gambar ---
+    private function hapusGambarFisik($namaFile)
+    {
+        if (!empty($namaFile)) {
+            $path = FCPATH . 'uploads/galeri/' . $namaFile;
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
     }
 }

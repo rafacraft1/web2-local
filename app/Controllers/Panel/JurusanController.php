@@ -32,30 +32,13 @@ class JurusanController extends BaseController
 
     public function store()
     {
-        $rules = [
-            'name'         => 'required|min_length[3]|is_unique[jurusan.name]',
-            'short_desc'   => 'required|max_length[255]',
-            'description'  => 'required',
-            'icon'         => 'required',
-            'image_base64' => 'required'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $imageBase64 = $this->request->getPost('image_base64');
+        if (empty($imageBase64)) {
+            return redirect()->back()->withInput()->with('error', 'Gambar jurusan wajib diisi.');
         }
 
         $slug = url_title($this->request->getPost('name'), '-', true);
-
-        // --- PROSES UPLOAD BASE64 DENGAN HELPER (SUPER CLEAN) ---
-        $imageBase64 = $this->request->getPost('image_base64');
         $namaGambar  = $slug . '-' . time() . '.webp';
-
-        $uploadProses = $this->processBase64Image($imageBase64, 'jurusan', $namaGambar);
-
-        if (!$uploadProses['success']) {
-            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
-        }
-        // ---------------------------------------------------------
 
         $data = [
             'name'        => $this->request->getPost('name'),
@@ -66,18 +49,35 @@ class JurusanController extends BaseController
             'image'       => $namaGambar
         ];
 
-        $this->jurusanModel->insert($data);
+        $this->jurusanModel->db->transStart();
+
+        if (!$this->jurusanModel->insert($data)) {
+            return redirect()->back()->withInput()->with('errors', $this->jurusanModel->errors());
+        }
+
         $insertId = $this->jurusanModel->getInsertID();
 
-        log_activity('CREATE', 'jurusan', $insertId, null, ['name' => $data['name']]);
+        // --- PROSES UPLOAD BASE64 ---
+        $uploadProses = $this->processBase64Image($imageBase64, 'jurusan', $namaGambar);
+        if (!$uploadProses['success']) {
+            $this->jurusanModel->db->transRollback();
+            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
+        }
 
-        return redirect()->to('/panel/jurusan')->with('success', 'Jurusan berhasil ditambahkan dengan aman.');
+        log_activity('CREATE', 'jurusan', $insertId, null, ['name' => $data['name']]);
+        $this->jurusanModel->db->transComplete();
+
+        if ($this->jurusanModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem.');
+        }
+
+        return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil ditambahkan.');
     }
 
     public function edit($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/jurusan')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/jurusan')->with('error', 'Akses ditolak.');
 
         $jurusan = $this->jurusanModel->find($id);
         if (!$jurusan) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -92,75 +92,86 @@ class JurusanController extends BaseController
     public function update($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/jurusan')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/jurusan')->with('error', 'Akses ditolak.');
 
         $jurusanLama = $this->jurusanModel->find($id);
-
-        $rules = [
-            'name'        => "required|min_length[3]|is_unique[jurusan.name,id,{$id}]",
-            'short_desc'  => 'required|max_length[255]',
-            'description' => 'required',
-            'icon'        => 'required',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
+        if (!$jurusanLama) return redirect()->to('panel/jurusan')->with('error', 'Data tidak ditemukan.');
 
         $slug = url_title($this->request->getPost('name'), '-', true);
-        $namaGambarFinal = $jurusanLama['image'];
-
-        // --- PROSES JIKA ADA GAMBAR BARU (SUPER CLEAN) ---
         $imageBase64 = $this->request->getPost('image_base64');
-        if (!empty($imageBase64)) {
-            $namaGambarBaru = $slug . '-' . time() . '.webp';
-            $uploadProses   = $this->processBase64Image($imageBase64, 'jurusan', $namaGambarBaru);
-
-            if (!$uploadProses['success']) {
-                return redirect()->back()->withInput()->with('error', $uploadProses['error']);
-            }
-
-            if (file_exists(FCPATH . 'uploads/jurusan/' . $jurusanLama['image'])) {
-                unlink(FCPATH . 'uploads/jurusan/' . $jurusanLama['image']);
-            }
-
-            $namaGambarFinal = $namaGambarBaru;
-        }
-        // -------------------------------------------------
 
         $data = [
+            'id'          => $id,
             'name'        => $this->request->getPost('name'),
             'slug'        => $slug,
             'short_desc'  => $this->request->getPost('short_desc'),
             'description' => $this->request->getPost('description'),
             'icon'        => $this->request->getPost('icon'),
-            'image'       => $namaGambarFinal
+            'image'       => $jurusanLama['image']
         ];
 
-        $this->jurusanModel->update($id, $data);
-        log_activity('UPDATE', 'jurusan', $id, ['name' => $jurusanLama['name']], ['name' => $data['name']]);
+        $this->jurusanModel->db->transStart();
 
-        return redirect()->to('/panel/jurusan')->with('success', 'Jurusan berhasil diperbarui.');
+        if (!$this->jurusanModel->update($id, $data)) {
+            return redirect()->back()->withInput()->with('errors', $this->jurusanModel->errors());
+        }
+
+        if (!empty($imageBase64)) {
+            $namaGambarBaru = $slug . '-' . time() . '.webp';
+            $uploadProses   = $this->processBase64Image($imageBase64, 'jurusan', $namaGambarBaru);
+
+            if (!$uploadProses['success']) {
+                $this->jurusanModel->db->transRollback();
+                return redirect()->back()->withInput()->with('error', $uploadProses['error']);
+            }
+
+            $this->hapusGambarFisik($jurusanLama['image']);
+            $this->jurusanModel->update($id, ['image' => $namaGambarBaru]);
+        }
+
+        log_activity('UPDATE', 'jurusan', $id, ['name' => $jurusanLama['name']], ['name' => $data['name']]);
+        $this->jurusanModel->db->transComplete();
+
+        if ($this->jurusanModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
+        }
+
+        return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil diperbarui.');
     }
 
     public function delete($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/jurusan')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/jurusan')->with('error', 'Akses ditolak.');
 
         $jurusan = $this->jurusanModel->find($id);
 
         if ($jurusan) {
-            if (file_exists(FCPATH . 'uploads/jurusan/' . $jurusan['image'])) {
-                unlink(FCPATH . 'uploads/jurusan/' . $jurusan['image']);
-            }
+            $this->jurusanModel->db->transStart();
 
             $this->jurusanModel->delete($id);
             log_activity('DELETE', 'jurusan', $id, ['name' => $jurusan['name']], null);
 
-            return redirect()->to('/panel/jurusan')->with('success', 'Jurusan berhasil dihapus.');
+            $this->jurusanModel->db->transComplete();
+
+            if ($this->jurusanModel->db->transStatus() !== false) {
+                $this->hapusGambarFisik($jurusan['image']);
+                return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil dihapus.');
+            }
+            return redirect()->to('panel/jurusan')->with('error', 'Terjadi kesalahan sistem.');
         }
 
-        return redirect()->to('/panel/jurusan')->with('error', 'Data tidak ditemukan.');
+        return redirect()->to('panel/jurusan')->with('error', 'Data tidak ditemukan.');
+    }
+
+    // --- Fungsi DRY untuk hapus gambar ---
+    private function hapusGambarFisik($namaFile)
+    {
+        if (!empty($namaFile)) {
+            $path = FCPATH . 'uploads/jurusan/' . $namaFile;
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
     }
 }

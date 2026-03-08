@@ -32,45 +32,47 @@ class MitraController extends BaseController
 
     public function store()
     {
-        $rules = [
-            'nama'        => 'required|min_length[2]',
-            'logo_base64' => 'required'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $logoBase64 = $this->request->getPost('logo_base64');
+        if (empty($logoBase64)) {
+            return redirect()->back()->withInput()->with('error', 'Logo mitra wajib diisi.');
         }
 
         $slug = url_title($this->request->getPost('nama'), '-', true);
-
-        // --- PROSES UPLOAD BASE64 DENGAN HELPER (SUPER CLEAN) ---
-        $logoBase64 = $this->request->getPost('logo_base64');
         $namaLogo   = 'mitra-' . $slug . '-' . time() . '.webp';
-
-        $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogo);
-
-        if (!$uploadProses['success']) {
-            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
-        }
-        // ---------------------------------------------------------
 
         $data = [
             'nama' => $this->request->getPost('nama'),
             'logo' => $namaLogo
         ];
 
-        $this->mitraModel->insert($data);
+        $this->mitraModel->db->transStart();
+
+        if (!$this->mitraModel->insert($data)) {
+            return redirect()->back()->withInput()->with('errors', $this->mitraModel->errors());
+        }
+
         $insertId = $this->mitraModel->getInsertID();
 
-        log_activity('CREATE', 'mitra', $insertId, null, ['nama' => $data['nama']]);
+        $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogo);
+        if (!$uploadProses['success']) {
+            $this->mitraModel->db->transRollback();
+            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
+        }
 
-        return redirect()->to('/panel/mitra')->with('success', 'Data mitra berhasil ditambahkan.');
+        log_activity('CREATE', 'mitra', $insertId, null, ['nama' => $data['nama']]);
+        $this->mitraModel->db->transComplete();
+
+        if ($this->mitraModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem.');
+        }
+
+        return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil ditambahkan.');
     }
 
     public function edit($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitra = $this->mitraModel->find($id);
         if (!$mitra) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -85,66 +87,82 @@ class MitraController extends BaseController
     public function update($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitraLama = $this->mitraModel->find($id);
-
-        $rules = [
-            'nama' => 'required|min_length[2]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
+        if (!$mitraLama) return redirect()->to('panel/mitra')->with('error', 'Data tidak ditemukan.');
 
         $slug = url_title($this->request->getPost('nama'), '-', true);
-        $namaLogoFinal = $mitraLama['logo'];
-
-        // --- PROSES JIKA ADA GAMBAR BARU (SUPER CLEAN) ---
         $logoBase64 = $this->request->getPost('logo_base64');
+
+        $data = [
+            'id'   => $id,
+            'nama' => $this->request->getPost('nama'),
+            'logo' => $mitraLama['logo']
+        ];
+
+        $this->mitraModel->db->transStart();
+
+        if (!$this->mitraModel->update($id, $data)) {
+            return redirect()->back()->withInput()->with('errors', $this->mitraModel->errors());
+        }
+
         if (!empty($logoBase64)) {
             $namaLogoBaru = 'mitra-' . $slug . '-' . time() . '.webp';
             $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogoBaru);
 
             if (!$uploadProses['success']) {
+                $this->mitraModel->db->transRollback();
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
 
-            if (!empty($mitraLama['logo']) && is_file(FCPATH . 'uploads/mitra/' . $mitraLama['logo'])) {
-                unlink(FCPATH . 'uploads/mitra/' . $mitraLama['logo']);
-            }
-
-            $namaLogoFinal = $namaLogoBaru;
+            $this->hapusGambarFisik($mitraLama['logo']);
+            $this->mitraModel->update($id, ['logo' => $namaLogoBaru]);
         }
-        // -------------------------------------------------
 
-        $data = [
-            'nama' => $this->request->getPost('nama'),
-            'logo' => $namaLogoFinal
-        ];
-
-        $this->mitraModel->update($id, $data);
         log_activity('UPDATE', 'mitra', $id, ['nama' => $mitraLama['nama']], ['nama' => $data['nama']]);
+        $this->mitraModel->db->transComplete();
 
-        return redirect()->to('/panel/mitra')->with('success', 'Data mitra berhasil diperbarui.');
+        if ($this->mitraModel->db->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
+        }
+
+        return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil diperbarui.');
     }
 
     public function delete($safeId = null)
     {
         $id = $this->decryptId($safeId);
-        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
+        if (!$id) return redirect()->to('panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitra = $this->mitraModel->find($id);
 
         if ($mitra) {
-            if (!empty($mitra['logo']) && is_file(FCPATH . 'uploads/mitra/' . $mitra['logo'])) {
-                unlink(FCPATH . 'uploads/mitra/' . $mitra['logo']);
-            }
+            $this->mitraModel->db->transStart();
+
             $this->mitraModel->delete($id);
             log_activity('DELETE', 'mitra', $id, ['nama' => $mitra['nama']], null);
-            return redirect()->to('/panel/mitra')->with('success', 'Data mitra berhasil dihapus.');
+
+            $this->mitraModel->db->transComplete();
+
+            if ($this->mitraModel->db->transStatus() !== false) {
+                $this->hapusGambarFisik($mitra['logo']);
+                return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil dihapus.');
+            }
+            return redirect()->to('panel/mitra')->with('error', 'Terjadi kesalahan sistem.');
         }
 
-        return redirect()->to('/panel/mitra')->with('error', 'Data tidak ditemukan.');
+        return redirect()->to('panel/mitra')->with('error', 'Data tidak ditemukan.');
+    }
+
+    // --- Fungsi DRY untuk hapus gambar ---
+    private function hapusGambarFisik($namaFile)
+    {
+        if (!empty($namaFile)) {
+            $path = FCPATH . 'uploads/mitra/' . $namaFile;
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
     }
 }

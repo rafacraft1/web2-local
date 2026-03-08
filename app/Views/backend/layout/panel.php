@@ -4,13 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Panel Admin' ?></title>
+    <title><?= esc($title ?? 'Panel Admin') ?></title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
     <link rel="stylesheet" href="<?= base_url('css/panel.css') ?>">
 </head>
 
@@ -33,11 +31,12 @@
             </div>
 
             <ul class="list-unstyled components flex-grow-1 mb-0">
-                <li class="<?= url_is('panel/dashboard') || url_is('panel') ? 'active' : '' ?>">
+                <li class="<?= (url_is('panel/dashboard') || url_is('panel')) ? 'active' : '' ?>">
                     <a href="<?= base_url('panel/dashboard') ?>" class="menu-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
                 </li>
 
-                <div class="sidebar-heading">Manajemen Konten</div>
+                <li class="sidebar-heading mt-3 px-3 text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.5px;">Manajemen Konten</li>
+
                 <li class="<?= url_is('panel/berita*') ? 'active' : '' ?>">
                     <a href="<?= base_url('panel/berita') ?>" class="menu-link"><i class="bi bi-newspaper"></i> Berita & Artikel</a>
                 </li>
@@ -48,7 +47,8 @@
                     <a href="<?= base_url('panel/galeri') ?>" class="menu-link"><i class="bi bi-images"></i> Galeri & Karya</a>
                 </li>
 
-                <div class="sidebar-heading">Interaksi Publik</div>
+                <li class="sidebar-heading mt-3 px-3 text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.5px;">Interaksi Publik</li>
+
                 <li class="<?= url_is('panel/pesan*') ? 'active' : '' ?>">
                     <a href="<?= base_url('panel/pesan') ?>" class="menu-link"><i class="bi bi-envelope"></i> Pesan Masuk</a>
                 </li>
@@ -57,7 +57,8 @@
                 </li>
 
                 <?php if (session()->get('role') === 'admin'): ?>
-                    <div class="sidebar-heading">Sistem & Pengaturan</div>
+                    <li class="sidebar-heading mt-3 px-3 text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.5px;">Sistem & Pengaturan</li>
+
                     <li class="<?= url_is('panel/users*') ? 'active' : '' ?>">
                         <a href="<?= base_url('panel/users') ?>" class="menu-link"><i class="bi bi-people"></i> Manajemen Users</a>
                     </li>
@@ -78,7 +79,6 @@
         </nav>
 
         <div id="content">
-
             <nav class="top-navbar d-flex justify-content-between align-items-center sticky-top">
                 <div class="d-flex align-items-center">
                     <button type="button" id="sidebarCollapse" class="btn btn-light shadow-sm me-3 border">
@@ -101,14 +101,14 @@
                             <?php endif; ?>
 
                             <div class="d-none d-md-block text-start">
-                                <span class="fw-semibold d-block lh-1" style="font-size: 14px;"><?= session()->get('nama_lengkap') ?></span>
-                                <small class="text-muted text-capitalize" style="font-size: 11px;"><?= session()->get('role') ?></small>
+                                <span class="fw-semibold d-block lh-1" style="font-size: 14px;"><?= esc(session()->get('nama_lengkap')) ?></span>
+                                <small class="text-muted text-capitalize" style="font-size: 11px;"><?= esc(session()->get('role')) ?></small>
                             </div>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 rounded-3" aria-labelledby="dropdownUser">
                             <li class="px-3 py-2 text-center d-md-none border-bottom mb-2">
-                                <span class="fw-bold d-block"><?= session()->get('nama_lengkap') ?></span>
-                                <span class="badge bg-soft-primary text-primary text-capitalize"><?= session()->get('role') ?></span>
+                                <span class="fw-bold d-block"><?= esc(session()->get('nama_lengkap')) ?></span>
+                                <span class="badge bg-soft-primary text-primary text-capitalize"><?= esc(session()->get('role')) ?></span>
                             </li>
                             <li><a class="dropdown-item py-2" href="<?= base_url('panel/profile') ?>"><i class="bi bi-person me-2 text-muted"></i> Profil Saya</a></li>
                             <li><a class="dropdown-item py-2" href="<?= base_url('panel/profile?tab=password') ?>"><i class="bi bi-shield-lock me-2 text-muted"></i> Ubah Password</a></li>
@@ -140,13 +140,12 @@
             </div>
 
             <footer class="main-footer">
-                &copy; <?= date('Y') ?> Panel Admin <?= $settings['nama_web'] ?? 'SMK Kreatif' ?>. Dibuat dengan CodeIgniter 4.
+                &copy; <?= date('Y') ?> Panel Admin <?= isset($settings['nama_web']) ? esc($settings['nama_web']) : 'SMK Kreatif' ?>. Dibuat dengan CodeIgniter 4.
             </footer>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
     <script src="<?= base_url('js/panel.js') ?>"></script>
 
     <?= $this->renderSection('extra_scripts') ?>
