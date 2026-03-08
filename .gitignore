@@ -63,6 +63,14 @@ writable/uploads/*
 writable/debugbar/*
 !writable/debugbar/index.html
 
+public/uploads/*
+!public/uploads/avatars/index.html
+!public/uploads/berita/index.html
+!public/uploads/galeri/index.html
+!public/uploads/hero/index.html
+!public/uploads/jurusan/index.html
+!public/uploads/logo/index.html
+!public/uploads/mitra/index.html
 php_errors.log
 
 #-------------------------
