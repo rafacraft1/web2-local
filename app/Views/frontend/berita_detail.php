@@ -17,7 +17,7 @@
         <div class="row g-5">
             <div class="col-lg-8" data-aos="fade-up">
                 <div class="bg-white rounded-4 shadow-sm overflow-hidden">
-                    <img src="<?= base_url('uploads/berita/' . $berita['image']) ?>" alt="<?= esc($berita['title']) ?>" class="w-100 object-fit-cover" style="height: 400px;">
+                    <img src="<?= base_url('uploads/berita/' . esc($berita['image'], 'url')) ?>" alt="<?= esc($berita['title'], 'attr') ?>" class="w-100 object-fit-cover" style="height: 400px;">
 
                     <div class="p-4 p-md-5">
                         <span class="badge bg-soft-primary text-primary-custom mb-3 px-3 py-2 rounded-pill fw-semibold">
@@ -65,11 +65,11 @@
                         <?php if (!empty($recent_berita)) : ?>
                             <?php foreach ($recent_berita as $rb) : ?>
                                 <div class="d-flex gap-3 align-items-center">
-                                    <img src="<?= base_url('uploads/berita/' . $rb['image']) ?>" alt="<?= esc($rb['title']) ?>" class="rounded-3 object-fit-cover shadow-sm" style="width: 80px; height: 80px; flex-shrink: 0;">
+                                    <img src="<?= base_url('uploads/berita/' . esc($rb['image'], 'url')) ?>" alt="<?= esc($rb['title'], 'attr') ?>" class="rounded-3 object-fit-cover shadow-sm" style="width: 80px; height: 80px; flex-shrink: 0;">
                                     <div>
                                         <small class="text-primary-custom fw-semibold mb-1 d-block"><?= esc($rb['category']) ?></small>
                                         <h6 class="fw-bold mb-1 lh-sm" style="font-size: 0.95rem;">
-                                            <a href="<?= base_url('berita/' . $rb['slug']) ?>" class="text-dark text-decoration-none text-hover-primary">
+                                            <a href="<?= base_url('berita/' . esc($rb['slug'], 'url')) ?>" class="text-dark text-decoration-none text-hover-primary">
                                                 <?= esc($rb['title']) ?>
                                             </a>
                                         </h6>

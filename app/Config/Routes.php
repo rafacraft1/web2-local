@@ -51,6 +51,7 @@ $routes->group('panel', ['filter' => 'roleCheck', 'namespace' => 'App\Controller
     $routes->group('settings', function ($routes) {
         $routes->get('/', 'Setting::index');
         $routes->post('update', 'Setting::update');
+        $routes->post('toggle-maintenance', 'Setting::toggleMaintenance');
     });
 
     // --- Log Aktivitas ---

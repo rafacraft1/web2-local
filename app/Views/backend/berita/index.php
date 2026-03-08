@@ -31,7 +31,7 @@
                         <tr>
                             <td class="text-center"><?= $no++ ?></td>
                             <td class="text-center">
-                                <img src="<?= base_url('uploads/berita/' . $row['image']) ?>" alt="Cover" class="rounded-3 object-fit-cover shadow-sm" width="80" height="60">
+                                <img src="<?= base_url('uploads/berita/' . esc($row['image'], 'url')) ?>" alt="Cover" class="rounded-3 object-fit-cover shadow-sm" width="80" height="60">
                             </td>
                             <td>
                                 <h6 class="mb-1 fw-bold text-dark"><?= esc($row['title']) ?></h6>

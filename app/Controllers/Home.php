@@ -32,55 +32,47 @@ class Home extends BaseController
         $beritaModel  = new BeritaModel();
         $mitraModel   = new MitraModel();
 
-        $data = [
+        return view('frontend/home', [
             'title'    => 'Beranda | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif Nusantara'),
             'settings' => $this->settings,
             'jurusan'  => $jurusanModel->findAll(),
             'galeri'   => $galeriModel->orderBy('created_at', 'DESC')->limit(3)->find(),
             'berita'   => $beritaModel->where('status', 'published')->orderBy('created_at', 'DESC')->limit(3)->find(),
             'mitra'    => $mitraModel->findAll()
-        ];
-
-        return view('frontend/home', $data);
+        ]);
     }
 
     public function profil()
     {
-        $data = [
+        return view('frontend/profil', [
             'title'    => 'Profil Sekolah | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-        ];
-
-        return view('frontend/profil', $data);
+        ]);
     }
 
     public function jurusan()
     {
         $jurusanModel = new JurusanModel();
 
-        $data = [
+        return view('frontend/jurusan', [
             'title'    => 'Program Keahlian | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
             'jurusan'  => $jurusanModel->orderBy('id', 'ASC')->findAll()
-        ];
-
-        return view('frontend/jurusan', $data);
+        ]);
     }
 
     public function berita()
     {
         $beritaModel = new BeritaModel();
 
-        $data = [
+        return view('frontend/berita', [
             'title'    => 'Berita & Artikel | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
             'berita'   => $beritaModel->where('status', 'published')
                 ->orderBy('created_at', 'DESC')
                 ->paginate(9, 'berita'),
             'pager'    => $beritaModel->pager
-        ];
-
-        return view('frontend/berita', $data);
+        ]);
     }
 
     public function detailBerita($slug)
@@ -105,73 +97,62 @@ class Home extends BaseController
             ->limit(6)
             ->find();
 
-        $data = [
+        return view('frontend/berita_detail', [
             'title'         => $berita['title'] . ' | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings'      => $this->settings,
             'berita'        => $berita,
             'recent_berita' => $recentBerita
-        ];
-
-        return view('frontend/berita_detail', $data);
+        ]);
     }
 
     public function galeri()
     {
         $galeriModel = new GaleriModel();
 
-        $data = [
+        return view('frontend/galeri', [
             'title'    => 'Galeri & Karya | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
             'galeri'   => $galeriModel->orderBy('created_at', 'DESC')->paginate(9, 'galeri'),
             'pager'    => $galeriModel->pager
-        ];
-
-        return view('frontend/galeri', $data);
+        ]);
     }
 
     public function kontak()
     {
-        $data = [
+        return view('frontend/kontak', [
             'title'    => 'Kontak Kami | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-        ];
-
-        return view('frontend/kontak', $data);
+        ]);
     }
 
     public function kirimPesan()
     {
-        $rules = [
-            'name'    => 'required|min_length[3]',
-            'email'   => 'required|valid_email',
-            'subject' => 'required|min_length[5]',
-            'message' => 'required|min_length[10]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Gagal mengirim pesan. Pastikan semua kolom diisi dengan benar (minimal 10 karakter untuk pesan).');
-        }
-
         $pesanModel = new PesanModel();
 
-        $pesanModel->insert([
-            'name'    => esc($this->request->getPost('name')),
+        // 1. Menerapkan fungsi esc() untuk proteksi serangan XSS dari pengunjung
+        // 2. Menyesuaikan field form (name, subject) menjadi kolom DB yang benar di PesanModel (nama, subjek)
+        $dataPesan = [
+            'nama'    => esc($this->request->getPost('name')),
             'email'   => esc($this->request->getPost('email')),
-            'subject' => esc($this->request->getPost('subject')),
-            'message' => esc($this->request->getPost('message')),
+            'subjek'  => esc($this->request->getPost('subject')),
+            'pesan'   => esc($this->request->getPost('message')),
             'is_read' => 0
-        ]);
+        ];
+
+        // 3. Validasi otomatis dari Model (Fat Model, Thin Controller)
+        if (!$pesanModel->insert($dataPesan)) {
+            // Jika validasi gagal, kembalikan array errors dari model
+            return redirect()->back()->withInput()->with('errors', $pesanModel->errors());
+        }
 
         return redirect()->back()->with('success', 'Terima kasih! Pesan Anda berhasil dikirim. Kami akan segera merespons melalui email Anda.');
     }
 
     public function error404()
     {
-        $data = [
+        return $this->response->setStatusCode(404)->setBody(view('frontend/404', [
             'title'    => 'Halaman Tidak Ditemukan | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-        ];
-
-        return $this->response->setStatusCode(404)->setBody(view('frontend/404', $data));
+        ]));
     }
 }

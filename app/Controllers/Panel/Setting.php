@@ -154,4 +154,58 @@ class Setting extends BaseController
             unlink($path);
         }
     }
+
+    public function toggleMaintenance()
+    {
+        // Pastikan request benar-benar dari AJAX
+        if ($this->request->isAJAX()) {
+            $status = $this->request->getPost('status'); // '1' atau '0'
+
+            $this->db->transStart();
+
+            $existing = $this->db->table('settings')->where('setting_key', 'maintenance_mode')->get()->getRowArray();
+
+            if ($existing) {
+                $this->db->table('settings')
+                    ->where('setting_key', 'maintenance_mode')
+                    ->update(['setting_value' => $status, 'updated_at' => date('Y-m-d H:i:s')]);
+            } else {
+                $this->db->table('settings')->insert([
+                    'setting_group' => 'general',
+                    'setting_key'   => 'maintenance_mode',
+                    'setting_value' => $status,
+                    'created_at'    => date('Y-m-d H:i:s'),
+                    'updated_at'    => date('Y-m-d H:i:s')
+                ]);
+            }
+
+            // Catat log aktivitas secara spesifik
+            log_activity(
+                'UPDATE',
+                'settings',
+                null,
+                ['maintenance_mode' => $existing['setting_value'] ?? '0'],
+                ['maintenance_mode' => $status]
+            );
+
+            $this->db->transComplete();
+
+            if ($this->db->transStatus() === false) {
+                return $this->response->setJSON([
+                    'success'  => false,
+                    'message'  => 'Terjadi kesalahan pada database.',
+                    'csrfHash' => csrf_hash() // Kirim hash baru untuk keamanan
+                ]);
+            }
+
+            return $this->response->setJSON([
+                'success'  => true,
+                'message'  => 'Status maintenance berhasil diubah.',
+                'status'   => $status,
+                'csrfHash' => csrf_hash() // Kirim hash baru untuk keamanan request selanjutnya
+            ]);
+        }
+
+        return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Akses ditolak.']);
+    }
 }

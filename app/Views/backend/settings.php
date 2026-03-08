@@ -36,6 +36,21 @@
 
                 <div class="tab-pane fade show active" id="general" role="tabpanel">
                     <div class="row">
+
+                        <div class="col-md-12 mb-4 border-bottom pb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold text-danger mb-0"><i class="bi bi-shield-exclamation me-2"></i> Mode Pemeliharaan (Maintenance)</h6>
+                                <div class="form-check form-switch fs-5 mb-0">
+                                    <input class="form-check-input shadow-none" type="checkbox" role="switch" id="maintenanceToggle" style="cursor: pointer;" <?= (isset($settings['maintenance_mode']) && $settings['maintenance_mode'] == '1') ? 'checked' : '' ?>>
+                                    <label class="form-check-label small fs-6 ms-1" for="maintenanceToggle" id="maintenanceLabel">
+                                        <?= (isset($settings['maintenance_mode']) && $settings['maintenance_mode'] == '1') ? '<span class="text-danger fw-bold">Aktif</span>' : '<span class="text-secondary fw-bold">Nonaktif</span>' ?>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="alert alert-warning border-0 small mt-2 mb-0">
+                                <i class="bi bi-info-circle-fill me-1"></i> Jika <strong>Aktif</strong>, pengunjung tidak bisa mengakses halaman depan web. Perubahan pada tombol saklar di atas akan <strong>langsung tersimpan otomatis</strong> tanpa perlu menekan tombol Simpan di bawah.
+                            </div>
+                        </div>
                         <div class="col-md-12 mb-4 border-bottom pb-4">
                             <label class="form-label fw-bold text-dark">Logo Website</label>
                             <div class="d-flex align-items-center gap-4 mt-2">
@@ -479,6 +494,62 @@
         if (profilKepsekInput) profilKepsekInput.addEventListener('change', function() {
             handleImageCompression(this, 'profilKepsekPreviewContainer', 'profilKepsekCompressMsg', 800, 300);
         });
+
+        // --- 10. AJAX TOGGLE MAINTENANCE MODE ---
+        const maintenanceToggle = document.getElementById('maintenanceToggle');
+        const maintenanceLabel = document.getElementById('maintenanceLabel');
+        const csrfName = '<?= csrf_token() ?>'; // Ambil nama token CSRF CI4
+
+        if (maintenanceToggle) {
+            maintenanceToggle.addEventListener('change', function() {
+                const status = this.checked ? '1' : '0';
+                const originalState = !this.checked;
+                let currentCsrfHash = document.querySelector(`input[name="${csrfName}"]`).value;
+
+                // Animasi Loading
+                maintenanceLabel.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>';
+                maintenanceToggle.disabled = true; // Kunci tombol saat memproses
+
+                fetch('<?= base_url('panel/settings/toggle-maintenance') ?>', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `status=${status}&${csrfName}=${currentCsrfHash}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        maintenanceToggle.disabled = false; // Buka kunci tombol
+
+                        // Update token CSRF untuk keamanan request selanjutnya jika di-klik lagi
+                        if (data.csrfHash) {
+                            document.querySelector(`input[name="${csrfName}"]`).value = data.csrfHash;
+                        }
+
+                        if (data.success) {
+                            // Jika Sukses, ubah teks label
+                            if (status === '1') {
+                                maintenanceLabel.innerHTML = '<span class="text-danger fw-bold">Aktif</span>';
+                            } else {
+                                maintenanceLabel.innerHTML = '<span class="text-secondary fw-bold">Nonaktif</span>';
+                            }
+                        } else {
+                            // Jika gagal dari server, kembalikan posisi tombol
+                            alert(data.message || 'Terjadi kesalahan.');
+                            maintenanceToggle.checked = originalState;
+                            maintenanceLabel.innerHTML = originalState ? '<span class="text-danger fw-bold">Aktif</span>' : '<span class="text-secondary fw-bold">Nonaktif</span>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Gagal terhubung ke server.');
+                        maintenanceToggle.disabled = false;
+                        maintenanceToggle.checked = originalState;
+                        maintenanceLabel.innerHTML = originalState ? '<span class="text-danger fw-bold">Aktif</span>' : '<span class="text-secondary fw-bold">Nonaktif</span>';
+                    });
+            });
+        }
 
     });
 </script>
