@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Models\UserModel;
+
 class Auth extends BaseController
 {
     public function index()
@@ -19,16 +21,16 @@ class Auth extends BaseController
 
     public function process()
     {
-        $db = \Config\Database::connect();
+        // 1. Inisiasi UserModel (bukan lagi \Config\Database::connect())
+        $userModel = new UserModel();
 
         $username = $this->request->getPost('username');
         $password = $this->request->getPost('password');
 
-        $user = $db->table('users')
-            ->where('username', $username)
-            ->orWhere('email', $username)
-            ->get()
-            ->getRowArray();
+        // 2. Gunakan method bawaan Model untuk pencarian data
+        $user = $userModel->where('username', $username)
+                          ->orWhere('email', $username)
+                          ->first();
 
         if ($user) {
             if (password_verify($password, $user['password_hash'])) {
@@ -50,15 +52,9 @@ class Auth extends BaseController
                 ];
                 session()->set($sessionData);
 
-                $db->table('audit_logs')->insert([
-                    'user_id'    => $user['id'],
-                    'nama_user'  => $user['nama_lengkap'],
-                    'action'     => 'LOGIN',
-                    'module'     => 'auth',
-                    'ip_address' => $this->request->getIPAddress(),
-                    'user_agent' => $this->request->getUserAgent()->getAgentString(),
-                    'created_at' => date('Y-m-d H:i:s')
-                ]);
+                // 3. Gunakan Helper log_activity agar seragam dan rapi
+                helper('audit');
+                log_activity('LOGIN', 'auth', $user['id']);
 
                 return redirect()->to('/panel/dashboard');
             } else {
@@ -72,15 +68,9 @@ class Auth extends BaseController
     public function logout()
     {
         if (session()->get('isLoggedIn')) {
-            $db = \Config\Database::connect();
-            $db->table('audit_logs')->insert([
-                'user_id'    => session()->get('user_id'),
-                'nama_user'  => session()->get('nama_lengkap'),
-                'action'     => 'LOGOUT',
-                'module'     => 'auth',
-                'ip_address' => $this->request->getIPAddress(),
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
+            // 4. Catat log sebelum session dihancurkan agar nama & ID tetap terekam
+            helper('audit');
+            log_activity('LOGOUT', 'auth', session()->get('user_id'));
         }
 
         session()->destroy();

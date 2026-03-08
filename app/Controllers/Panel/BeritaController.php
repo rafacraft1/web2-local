@@ -47,32 +47,19 @@ class BeritaController extends BaseController
 
         $slug = url_title($this->request->getPost('title'), '-', true);
 
-        // --- PROSES GAMBAR BASE64 DENGAN PENGAMANAN KETAT ---
+        // --- PROSES UPLOAD BASE64 DENGAN HELPER (SUPER CLEAN) ---
         $imageBase64 = $this->request->getPost('image_base64');
-        if (strlen($imageBase64) > 100000) return redirect()->back()->withInput()->with('error', 'Keamanan: Ukuran gambar terlalu besar.');
+        $namaGambar  = $slug . '-' . time() . '.webp';
 
-        $imageParts = explode(';base64,', $imageBase64);
-        if (count($imageParts) != 2) return redirect()->back()->withInput()->with('error', 'Keamanan: Format gambar tidak valid.');
+        $uploadProses = $this->processBase64Image($imageBase64, 'berita', $namaGambar);
 
-        $imageDecoded = base64_decode($imageParts[1]);
-
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_buffer($finfo, $imageDecoded);
-        finfo_close($finfo);
-
-        if (!in_array($mimeType, ['image/webp', 'image/jpeg', 'image/png'])) {
-            return redirect()->back()->withInput()->with('error', 'Keamanan: Data ditolak! Bukan gambar murni.');
+        if (!$uploadProses['success']) {
+            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
         }
-
-        $namaGambar = $slug . '-' . time() . '.webp';
-        $uploadPath = FCPATH . 'uploads/berita/';
-        if (!is_dir($uploadPath)) mkdir($uploadPath, 0777, true);
-
-        file_put_contents($uploadPath . $namaGambar, $imageDecoded);
-        // ----------------------------------------------------
+        // ---------------------------------------------------------
 
         $data = [
-            'user_id'  => session()->get('user_id'), // Ambil ID pembuat dari Session
+            'user_id'  => session()->get('user_id'),
             'title'    => $this->request->getPost('title'),
             'slug'     => $slug,
             'excerpt'  => $this->request->getPost('excerpt'),
@@ -85,7 +72,6 @@ class BeritaController extends BaseController
         $this->beritaModel->insert($data);
         $insertId = $this->beritaModel->getInsertID();
 
-        // 🎥 CATAT LOG
         log_activity('CREATE', 'berita', $insertId, null, ['title' => $data['title']]);
 
         return redirect()->to('/panel/berita')->with('success', 'Berita berhasil diterbitkan.');
@@ -93,14 +79,8 @@ class BeritaController extends BaseController
 
     public function edit($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/berita');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
 
         $berita = $this->beritaModel->find($id);
         if (!$berita) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -114,12 +94,8 @@ class BeritaController extends BaseController
 
     public function update($safeId = null)
     {
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
 
         $beritaLama = $this->beritaModel->find($id);
 
@@ -138,35 +114,23 @@ class BeritaController extends BaseController
         $slug = url_title($this->request->getPost('title'), '-', true);
         $namaGambarFinal = $beritaLama['image'];
 
-        // --- PROSES JIKA ADA GAMBAR BARU ---
+        // --- PROSES JIKA ADA GAMBAR BARU (SUPER CLEAN) ---
         $imageBase64 = $this->request->getPost('image_base64');
         if (!empty($imageBase64)) {
-            if (strlen($imageBase64) > 100000) return redirect()->back()->withInput()->with('error', 'Keamanan: Ukuran gambar terlalu besar.');
+            $namaGambarBaru = $slug . '-' . time() . '.webp';
+            $uploadProses   = $this->processBase64Image($imageBase64, 'berita', $namaGambarBaru);
 
-            $imageParts = explode(';base64,', $imageBase64);
-            if (count($imageParts) != 2) return redirect()->back()->withInput()->with('error', 'Keamanan: Format gambar tidak valid.');
-
-            $imageDecoded = base64_decode($imageParts[1]);
-
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_buffer($finfo, $imageDecoded);
-            finfo_close($finfo);
-
-            if (!in_array($mimeType, ['image/webp', 'image/jpeg', 'image/png'])) {
-                return redirect()->back()->withInput()->with('error', 'Keamanan: Data ditolak! Bukan gambar murni.');
+            if (!$uploadProses['success']) {
+                return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
 
-            $uploadPath = FCPATH . 'uploads/berita/';
-            if (!is_dir($uploadPath)) mkdir($uploadPath, 0777, true);
-
-            $namaGambarFinal = $slug . '-' . time() . '.webp';
-            file_put_contents($uploadPath . $namaGambarFinal, $imageDecoded);
-
-            if (file_exists($uploadPath . $beritaLama['image'])) {
-                unlink($uploadPath . $beritaLama['image']);
+            if (file_exists(FCPATH . 'uploads/berita/' . $beritaLama['image'])) {
+                unlink(FCPATH . 'uploads/berita/' . $beritaLama['image']);
             }
+
+            $namaGambarFinal = $namaGambarBaru;
         }
-        // ------------------------------------
+        // -------------------------------------------------
 
         $data = [
             'title'    => $this->request->getPost('title'),
@@ -186,12 +150,8 @@ class BeritaController extends BaseController
 
     public function delete($safeId = null)
     {
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/berita')->with('error', 'Akses ditolak.');
 
         $berita = $this->beritaModel->find($id);
 

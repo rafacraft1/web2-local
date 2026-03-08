@@ -3,20 +3,21 @@
 namespace App\Controllers;
 
 use App\Models\PesanModel;
+use App\Models\JurusanModel;
+use App\Models\GaleriModel;
+use App\Models\BeritaModel;
+use App\Models\MitraModel;
 
 class Home extends BaseController
 {
-    // Deklarasikan variabel global untuk class ini
-    protected $db;
     protected $settings;
 
-    // Fungsi Construct otomatis berjalan setiap kali controller ini dipanggil
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        // Ambil data pengaturan web khusus untuk layout frontend
+        $db = \Config\Database::connect();
+        $rawSettings = $db->table('settings')->get()->getResultArray();
 
-        // Ambil data pengaturan web sekali saja di sini
-        $rawSettings = $this->db->table('settings')->get()->getResultArray();
         $this->settings = [];
         foreach ($rawSettings as $row) {
             $this->settings[$row['setting_key']] = $row['setting_value'];
@@ -25,37 +26,24 @@ class Home extends BaseController
 
     public function index()
     {
-        // Panggil data lainnya untuk halaman Home menggunakan $this->db
-        $jurusan = $this->db->table('jurusan')->get()->getResultArray();
-
-        $galeri = $this->db->table('galeri')
-            ->orderBy('created_at', 'DESC')
-            ->limit(3)
-            ->get()
-            ->getResultArray();
-
-        $berita = $this->db->table('berita')
-            ->where('status', 'published')
-            ->orderBy('created_at', 'DESC')
-            ->limit(3)
-            ->get()
-            ->getResultArray();
-
-        $mitra = $this->db->table('mitra')->get()->getResultArray();
+        // Inisiasi Models
+        $jurusanModel = new JurusanModel();
+        $galeriModel  = new GaleriModel();
+        $beritaModel  = new BeritaModel();
+        $mitraModel   = new MitraModel();
 
         $data = [
             'title'    => 'Beranda | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif Nusantara'),
-            'settings' => $this->settings, // Langsung panggil variabel global
-            'jurusan'  => $jurusan,
-            'galeri'   => $galeri,
-            'berita'   => $berita,
-            'mitra'    => $mitra
+            'settings' => $this->settings,
+            'jurusan'  => $jurusanModel->findAll(),
+            'galeri'   => $galeriModel->orderBy('created_at', 'DESC')->limit(3)->find(),
+            'berita'   => $beritaModel->where('status', 'published')->orderBy('created_at', 'DESC')->limit(3)->find(),
+            'mitra'    => $mitraModel->findAll()
         ];
 
         return view('frontend/home', $data);
     }
 
-    // Fungsi untuk menampilkan Halaman Profil Sekolah
     public function profil()
     {
         $data = [
@@ -66,65 +54,56 @@ class Home extends BaseController
         return view('frontend/profil', $data);
     }
 
-    // Fungsi untuk menampilkan Daftar Jurusan (Indeks)
     public function jurusan()
     {
-        $jurusanModel = new \App\Models\JurusanModel();
+        $jurusanModel = new JurusanModel();
 
         $data = [
             'title'    => 'Program Keahlian | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-            // Ambil semua jurusan, urutkan berdasarkan ID atau nama (di sini berdasarkan ID ascending)
             'jurusan'  => $jurusanModel->orderBy('id', 'ASC')->findAll()
         ];
 
         return view('frontend/jurusan', $data);
     }
 
-    // Fungsi untuk menampilkan Daftar Berita (Indeks)
     public function berita()
     {
-        $beritaModel = new \App\Models\BeritaModel();
+        $beritaModel = new BeritaModel();
 
         $data = [
             'title'    => 'Berita & Artikel | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-            // Ambil berita yang di-publish, urutkan dari terbaru, batasi 9 per halaman
             'berita'   => $beritaModel->where('status', 'published')
                 ->orderBy('created_at', 'DESC')
                 ->paginate(9, 'berita'),
-            // Kirim data pager untuk membuat tombol navigasi halaman 1, 2, 3, dst
             'pager'    => $beritaModel->pager
         ];
 
         return view('frontend/berita', $data);
     }
 
-    // Fungsi untuk menampilkan Detail Berita
     public function detailBerita($slug)
     {
-        // Cari berita berdasarkan slug dan pastikan statusnya published
-        $berita = $this->db->table('berita')
-            ->select('berita.*, users.nama_lengkap AS penulis')
-            ->join('users', 'users.id = berita.user_id', 'left') // Ambil nama penulis
+        $beritaModel = new BeritaModel();
+
+        // Menggunakan method dari model atau Query Builder melalui Model
+        $berita = $beritaModel->select('berita.*, users.nama_lengkap AS penulis')
+            ->join('users', 'users.id = berita.user_id', 'left')
             ->where('berita.slug', $slug)
             ->where('berita.status', 'published')
-            ->get()
-            ->getRowArray();
+            ->first();
 
-        // Jika berita tidak ditemukan atau masih draft, tampilkan error 404
         if (!$berita) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Berita tidak ditemukan.');
         }
 
-        // Ambil 5 berita terbaru lainnya untuk rekomendasi (Kecuali berita yang sedang dibaca)
-        $recentBerita = $this->db->table('berita')
-            ->where('status', 'published')
+        // Ambil 6 berita terbaru lainnya untuk rekomendasi
+        $recentBerita = $beritaModel->where('status', 'published')
             ->where('id !=', $berita['id'])
             ->orderBy('created_at', 'DESC')
             ->limit(6)
-            ->get()
-            ->getResultArray();
+            ->find();
 
         $data = [
             'title'         => $berita['title'] . ' | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
@@ -136,15 +115,13 @@ class Home extends BaseController
         return view('frontend/berita_detail', $data);
     }
 
-    // Fungsi untuk menampilkan Daftar Galeri (Indeks)
     public function galeri()
     {
-        $galeriModel = new \App\Models\GaleriModel();
+        $galeriModel = new GaleriModel();
 
         $data = [
             'title'    => 'Galeri & Karya | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
             'settings' => $this->settings,
-            // Ambil galeri, urutkan dari terbaru, batasi 9 foto per halaman
             'galeri'   => $galeriModel->orderBy('created_at', 'DESC')->paginate(9, 'galeri'),
             'pager'    => $galeriModel->pager
         ];
@@ -156,13 +133,12 @@ class Home extends BaseController
     {
         $data = [
             'title'    => 'Kontak Kami | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif'),
-            'settings' => $this->settings, // Langsung panggil variabel global
+            'settings' => $this->settings,
         ];
 
         return view('frontend/kontak', $data);
     }
 
-    // Fungsi untuk memproses pengiriman pesan
     public function kirimPesan()
     {
         $rules = [
@@ -189,7 +165,6 @@ class Home extends BaseController
         return redirect()->back()->with('success', 'Terima kasih! Pesan Anda berhasil dikirim. Kami akan segera merespons melalui email Anda.');
     }
 
-    // Fungsi untuk Halaman 404 Kustom
     public function error404()
     {
         $data = [
@@ -197,7 +172,6 @@ class Home extends BaseController
             'settings' => $this->settings,
         ];
 
-        // Pastikan response code HTTP tetap 404 agar sesuai standar SEO
         return $this->response->setStatusCode(404)->setBody(view('frontend/404', $data));
     }
 }

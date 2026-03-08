@@ -43,29 +43,16 @@ class MitraController extends BaseController
 
         $slug = url_title($this->request->getPost('nama'), '-', true);
 
-        // --- PROSES GAMBAR BASE64 DENGAN PENGAMANAN KETAT ---
+        // --- PROSES UPLOAD BASE64 DENGAN HELPER (SUPER CLEAN) ---
         $logoBase64 = $this->request->getPost('logo_base64');
-        if (strlen($logoBase64) > 100000) return redirect()->back()->withInput()->with('error', 'Keamanan: Ukuran logo terlalu besar.');
+        $namaLogo   = 'mitra-' . $slug . '-' . time() . '.webp';
 
-        $imageParts = explode(';base64,', $logoBase64);
-        if (count($imageParts) != 2) return redirect()->back()->withInput()->with('error', 'Keamanan: Format logo tidak valid.');
+        $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogo);
 
-        $imageDecoded = base64_decode($imageParts[1]);
-
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_buffer($finfo, $imageDecoded);
-        finfo_close($finfo);
-
-        if (!in_array($mimeType, ['image/webp', 'image/jpeg', 'image/png'])) {
-            return redirect()->back()->withInput()->with('error', 'Keamanan: Data ditolak! Bukan gambar murni.');
+        if (!$uploadProses['success']) {
+            return redirect()->back()->withInput()->with('error', $uploadProses['error']);
         }
-
-        $namaLogo = 'mitra-' . $slug . '-' . time() . '.webp';
-        $uploadPath = FCPATH . 'uploads/mitra/';
-        if (!is_dir($uploadPath)) mkdir($uploadPath, 0777, true);
-
-        file_put_contents($uploadPath . $namaLogo, $imageDecoded);
-        // ----------------------------------------------------
+        // ---------------------------------------------------------
 
         $data = [
             'nama' => $this->request->getPost('nama'),
@@ -77,19 +64,13 @@ class MitraController extends BaseController
 
         log_activity('CREATE', 'mitra', $insertId, null, ['nama' => $data['nama']]);
 
-        return redirect()->to('/panel/mitra')->with('success', 'Mitra berhasil ditambahkan.');
+        return redirect()->to('/panel/mitra')->with('success', 'Data mitra berhasil ditambahkan.');
     }
 
     public function edit($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/mitra');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitra = $this->mitraModel->find($id);
         if (!$mitra) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -103,17 +84,13 @@ class MitraController extends BaseController
 
     public function update($safeId = null)
     {
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitraLama = $this->mitraModel->find($id);
 
         $rules = [
-            'nama' => 'required|min_length[2]',
+            'nama' => 'required|min_length[2]'
         ];
 
         if (!$this->validate($rules)) {
@@ -123,35 +100,23 @@ class MitraController extends BaseController
         $slug = url_title($this->request->getPost('nama'), '-', true);
         $namaLogoFinal = $mitraLama['logo'];
 
-        // --- PROSES JIKA ADA LOGO BARU ---
+        // --- PROSES JIKA ADA GAMBAR BARU (SUPER CLEAN) ---
         $logoBase64 = $this->request->getPost('logo_base64');
         if (!empty($logoBase64)) {
-            if (strlen($logoBase64) > 100000) return redirect()->back()->withInput()->with('error', 'Keamanan: Ukuran logo terlalu besar.');
+            $namaLogoBaru = 'mitra-' . $slug . '-' . time() . '.webp';
+            $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogoBaru);
 
-            $imageParts = explode(';base64,', $logoBase64);
-            if (count($imageParts) != 2) return redirect()->back()->withInput()->with('error', 'Keamanan: Format logo tidak valid.');
-
-            $imageDecoded = base64_decode($imageParts[1]);
-
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_buffer($finfo, $imageDecoded);
-            finfo_close($finfo);
-
-            if (!in_array($mimeType, ['image/webp', 'image/jpeg', 'image/png'])) {
-                return redirect()->back()->withInput()->with('error', 'Keamanan: Data ditolak! Bukan gambar murni.');
+            if (!$uploadProses['success']) {
+                return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
 
-            $uploadPath = FCPATH . 'uploads/mitra/';
-            if (!is_dir($uploadPath)) mkdir($uploadPath, 0777, true);
-
-            $namaLogoFinal = 'mitra-' . $slug . '-' . time() . '.webp';
-            file_put_contents($uploadPath . $namaLogoFinal, $imageDecoded);
-
-            if (!empty($mitraLama['logo']) && is_file($uploadPath . $mitraLama['logo'])) {
-                unlink($uploadPath . $mitraLama['logo']);
+            if (!empty($mitraLama['logo']) && is_file(FCPATH . 'uploads/mitra/' . $mitraLama['logo'])) {
+                unlink(FCPATH . 'uploads/mitra/' . $mitraLama['logo']);
             }
+
+            $namaLogoFinal = $namaLogoBaru;
         }
-        // ------------------------------------
+        // -------------------------------------------------
 
         $data = [
             'nama' => $this->request->getPost('nama'),
@@ -166,12 +131,8 @@ class MitraController extends BaseController
 
     public function delete($safeId = null)
     {
-        $encrypter = \Config\Services::encrypter();
-        try {
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
-        }
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/mitra')->with('error', 'Akses ditolak.');
 
         $mitra = $this->mitraModel->find($id);
 
@@ -181,7 +142,7 @@ class MitraController extends BaseController
             }
             $this->mitraModel->delete($id);
             log_activity('DELETE', 'mitra', $id, ['nama' => $mitra['nama']], null);
-            return redirect()->to('/panel/mitra')->with('success', 'Mitra berhasil dihapus.');
+            return redirect()->to('/panel/mitra')->with('success', 'Data mitra berhasil dihapus.');
         }
 
         return redirect()->to('/panel/mitra')->with('error', 'Data tidak ditemukan.');

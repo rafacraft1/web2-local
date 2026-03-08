@@ -29,15 +29,9 @@ class PesanController extends BaseController
     // 2. Membaca Detail Pesan
     public function show($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/pesan');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Invalid URL');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
-        }
+        // Gunakan helper dekripsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
 
         $pesan = $this->pesanModel->find($id);
         if (!$pesan) {
@@ -62,15 +56,9 @@ class PesanController extends BaseController
     // 3. Menghapus Pesan
     public function delete($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/pesan');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Invalid URL');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
-        }
+        // Gunakan helper dekripsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) return redirect()->to('/panel/pesan')->with('error', 'Akses ditolak: URL tidak valid.');
 
         $pesan = $this->pesanModel->find($id);
         if (!$pesan) {

@@ -13,6 +13,7 @@ class UserController extends BaseController
     public function __construct()
     {
         $this->userModel = new UserModel();
+        // helper('audit'); sudah dihapus karena otomatis dimuat dari BaseController
     }
 
     // 1. Menampilkan Daftar Pengguna
@@ -86,13 +87,9 @@ class UserController extends BaseController
     // 4. Form Edit Pengguna 
     public function edit($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/users');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Format tidak valid');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
+        // Memanggil fungsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) {
             return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
         }
 
@@ -116,13 +113,9 @@ class UserController extends BaseController
     // 5. Proses Update Pengguna 
     public function update($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/users');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Format tidak valid');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
+        // Memanggil fungsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) {
             return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
         }
 
@@ -187,13 +180,9 @@ class UserController extends BaseController
     // 6. Hapus Pengguna (HARD DELETE)
     public function delete($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/users');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Format tidak valid');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
+        // Memanggil fungsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) {
             return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
         }
 
@@ -224,14 +213,10 @@ class UserController extends BaseController
     // 7. Toggle Status (Aktif/Nonaktif)
     public function toggleStatus($safeId = null)
     {
-        if (!$safeId) return redirect()->to('/panel/users');
-
-        $encrypter = \Config\Services::encrypter();
-        try {
-            if (!ctype_xdigit($safeId)) throw new \Exception('Invalid');
-            $id = $encrypter->decrypt(hex2bin($safeId));
-        } catch (\Exception $e) {
-            return redirect()->to('/panel/users')->with('error', 'Akses ditolak.');
+        // Memanggil fungsi dari BaseController
+        $id = $this->decryptId($safeId);
+        if (!$id) {
+            return redirect()->to('/panel/users')->with('error', 'Akses ditolak: URL tidak valid atau dimanipulasi.');
         }
 
         $userTarget = $this->userModel->find($id);

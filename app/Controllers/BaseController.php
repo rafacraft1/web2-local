@@ -7,40 +7,69 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
 
-/**
- * BaseController provides a convenient place for loading components
- * and performing functions that are needed by all your controllers.
- *
- * Extend this class in any new controllers:
- * ```
- *     class Home extends BaseController
- * ```
- *
- * For security, be sure to declare any new methods as protected or private.
- */
 abstract class BaseController extends Controller
 {
-    /**
-     * Be sure to declare properties for any property fetch you initialized.
-     * The creation of dynamic property is deprecated in PHP 8.2.
-     */
-
-    // protected $session;
     protected $helpers = ['audit'];
 
-    /**
-     * @return void
-     */
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
     {
-        // Load here all helpers you want to be available in your controllers that extend BaseController.
-        // Caution: Do not put the this below the parent::initController() call below.
-        // $this->helpers = ['form', 'url'];
-
-        // Caution: Do not edit this line.
         parent::initController($request, $response, $logger);
+    }
 
-        // Preload any models, libraries, etc, here.
-        // $this->session = service('session');
+    /**
+     * Mendekripsi $safeId (Hex/Encrypted) menjadi ID asli (Integer).
+     */
+    protected function decryptId($safeId)
+    {
+        if (!$safeId) return false;
+
+        $encrypter = \Config\Services::encrypter();
+        try {
+            if (!ctype_xdigit($safeId)) throw new \Exception('Format bukan Hexadecimal');
+            return $encrypter->decrypt(hex2bin($safeId));
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Memproses, memvalidasi keamanan, dan menyimpan gambar Base64.
+     * Dapat digunakan oleh seluruh Controller.
+     * * @return array ['success' => bool, 'error' => string|null]
+     */
+    protected function processBase64Image($imageBase64, $folderName, $fileName)
+    {
+        // 1. Cek ukuran batas wajar (Sekitar 1.5MB - 2MB)
+        if (strlen($imageBase64) > 2000000) {
+            return ['success' => false, 'error' => 'Keamanan: Ukuran gambar terlalu besar (Maksimal ~1.5MB).'];
+        }
+
+        // 2. Cek format payload Base64
+        $imageParts = explode(';base64,', $imageBase64);
+        if (count($imageParts) != 2) {
+            return ['success' => false, 'error' => 'Keamanan: Format data gambar tidak valid.'];
+        }
+
+        // 3. Decode gambar
+        $imageDecoded = base64_decode($imageParts[1]);
+
+        // 4. Verifikasi MIME Type secara murni (Modern PHP 8+)
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->buffer($imageDecoded);
+
+        if (!in_array($mimeType, ['image/webp', 'image/jpeg', 'image/png'])) {
+            return ['success' => false, 'error' => 'Keamanan: File ditolak! Bukan gambar murni (Terdeteksi: ' . $mimeType . ').'];
+        }
+
+        // 5. Pastikan direktori tujuan tersedia
+        $uploadPath = FCPATH . 'uploads/' . $folderName . '/';
+        if (!is_dir($uploadPath)) {
+            mkdir($uploadPath, 0777, true);
+        }
+
+        // 6. Simpan gambar secara fisik
+        file_put_contents($uploadPath . $fileName, $imageDecoded);
+
+        return ['success' => true, 'error' => null];
     }
 }
