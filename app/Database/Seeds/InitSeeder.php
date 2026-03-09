@@ -198,6 +198,6 @@ class InitSeeder extends Seeder
         ];
         $this->db->table('role_permissions')->insertBatch($rolePermissionsData);
 
-        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend, Menu Dinamis, dan Keamanan Rute.\n";
+        //echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend, Menu Dinamis, dan Keamanan Rute.\n";
     }
 }
