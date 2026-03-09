@@ -30,12 +30,12 @@ class BeritaController extends BaseController
         ]);
     }
 
-public function store()
+    public function store()
     {
         // --- Task 4: Refactoring Mass Assignment Input ---
         $inputData = $this->request->getPost(['title', 'excerpt', 'content', 'category', 'status']);
         $imageBase64 = $this->request->getPost('image_base64');
-        
+
         if (empty($imageBase64)) {
             return redirect()->back()->withInput()->with('error', 'Gambar sampul wajib diisi.');
         }
@@ -58,7 +58,7 @@ public function store()
 
         // --- Memulai Transaksi Database ---
         $this->beritaModel->db->transStart();
-        
+
         $this->beritaModel->insert($inputData);
         $insertId = $this->beritaModel->getInsertID();
 
@@ -92,7 +92,7 @@ public function store()
         ]);
     }
 
-public function update($safeId = null)
+    public function update($safeId = null)
     {
         $id = $this->decryptId($safeId);
         if (!$id) return redirect()->to('panel/berita')->with('error', 'Akses ditolak.');
@@ -104,7 +104,7 @@ public function update($safeId = null)
         $inputData = $this->request->getPost(['title', 'excerpt', 'content', 'category', 'status']);
         $inputData['id']   = $id; // ID untuk validasi is_unique
         $inputData['slug'] = url_title($inputData['title'], '-', true);
-        
+
         $imageBase64 = $this->request->getPost('image_base64');
         $namaGambarFinal = $beritaLama['image']; // Default pakai gambar lama
 
@@ -124,7 +124,7 @@ public function update($safeId = null)
             if (!$uploadProses['success']) {
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-            
+
             // Task 1: Update array data dengan gambar baru, BUKAN query terpisah
             $namaGambarFinal = $namaGambarBaru;
             $gambarBaruBerhasilUpload = true;
@@ -134,9 +134,9 @@ public function update($safeId = null)
 
         // --- Transaksi Database ---
         $this->beritaModel->db->transStart();
-        
+
         $this->beritaModel->update($id, $inputData);
-        
+
         $this->beritaModel->db->transComplete();
 
         // --- Task 6: Pengecekan Transaksi DB ---

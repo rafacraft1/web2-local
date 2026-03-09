@@ -34,7 +34,7 @@ class JurusanController extends BaseController
     {
         $inputData   = $this->request->getPost(['name', 'short_desc', 'description', 'icon']);
         $imageBase64 = $this->request->getPost('image_base64');
-        
+
         if (empty($imageBase64)) {
             return redirect()->back()->withInput()->with('error', 'Gambar jurusan wajib diisi.');
         }
@@ -92,7 +92,7 @@ class JurusanController extends BaseController
         $inputData = $this->request->getPost(['name', 'short_desc', 'description', 'icon']);
         $inputData['id']   = $id;
         $inputData['slug'] = url_title($inputData['name'], '-', true);
-        
+
         $imageBase64 = $this->request->getPost('image_base64');
         $namaGambarFinal = $jurusanLama['image'];
 
@@ -109,7 +109,7 @@ class JurusanController extends BaseController
             if (!$uploadProses['success']) {
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-            
+
             $namaGambarFinal = $namaGambarBaru;
             $gambarBaruBerhasilUpload = true;
         }

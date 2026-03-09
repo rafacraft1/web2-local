@@ -114,7 +114,7 @@ class UserController extends BaseController
         $user = $this->userModel->find($id);
         if ($user) {
             $newStatus = ($user['is_active'] == 1) ? 0 : 1;
-            
+
             $this->userModel->db->transStart();
             $this->userModel->skipValidation(true)->update($id, ['is_active' => $newStatus]);
             $this->userModel->db->transComplete();

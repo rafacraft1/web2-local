@@ -75,7 +75,7 @@ class Home extends BaseController
         ]);
     }
 
-public function detailBerita($slug)
+    public function detailBerita($slug)
     {
         $beritaModel = new BeritaModel();
         $tabelBerita = $beritaModel->table; // Ambil nama tabel secara dinamis

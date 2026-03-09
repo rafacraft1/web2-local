@@ -34,7 +34,7 @@ class GaleriController extends BaseController
     {
         $inputData   = $this->request->getPost(['title', 'description']);
         $imageBase64 = $this->request->getPost('image_base64');
-        
+
         if (empty($imageBase64)) {
             return redirect()->back()->withInput()->with('error', 'Gambar galeri wajib diisi.');
         }
@@ -94,9 +94,9 @@ class GaleriController extends BaseController
         if (!$galeriLama) return redirect()->to('panel/galeri')->with('error', 'Data tidak ditemukan.');
 
         $inputData = $this->request->getPost(['title', 'description']);
-        $inputData['id'] = $id; 
+        $inputData['id'] = $id;
         $slug = url_title($inputData['title'], '-', true);
-        
+
         $imageBase64 = $this->request->getPost('image_base64');
         $namaGambarFinal = $galeriLama['image'];
 
@@ -114,7 +114,7 @@ class GaleriController extends BaseController
             if (!$uploadProses['success']) {
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-            
+
             $namaGambarFinal = $namaGambarBaru;
             $gambarBaruBerhasilUpload = true;
         }

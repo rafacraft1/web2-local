@@ -34,7 +34,7 @@ class MitraController extends BaseController
     {
         $inputData  = $this->request->getPost(['nama']);
         $logoBase64 = $this->request->getPost('logo_base64');
-        
+
         if (empty($logoBase64)) {
             return redirect()->back()->withInput()->with('error', 'Logo mitra wajib diisi.');
         }
@@ -92,7 +92,7 @@ class MitraController extends BaseController
         $inputData = $this->request->getPost(['nama']);
         $inputData['id'] = $id;
         $slug = url_title($inputData['nama'], '-', true);
-        
+
         $logoBase64 = $this->request->getPost('logo_base64');
         $namaLogoFinal = $mitraLama['logo'];
 
@@ -109,7 +109,7 @@ class MitraController extends BaseController
             if (!$uploadProses['success']) {
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-            
+
             $namaLogoFinal = $namaLogoBaru;
             $logoBaruBerhasilUpload = true;
         }

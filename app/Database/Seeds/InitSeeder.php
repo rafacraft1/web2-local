@@ -142,17 +142,17 @@ class InitSeeder extends Seeder
             ['slug_role' => 'admin', 'menu_id' => 7],
             ['slug_role' => 'admin', 'menu_id' => 8],
             ['slug_role' => 'admin', 'menu_id' => 9],
-            
+
             // --- ROLE: KEPALA SEKOLAH (Review) ---
             ['slug_role' => 'kepala-sekolah', 'menu_id' => 1], // Dashboard
             ['slug_role' => 'kepala-sekolah', 'menu_id' => 2], // Berita
             ['slug_role' => 'kepala-sekolah', 'menu_id' => 7], // Audit Logs (Pantau aktivitas)
-            
+
             // --- ROLE: GURU (Konten) ---
             ['slug_role' => 'guru', 'menu_id' => 1], // Dashboard
             ['slug_role' => 'guru', 'menu_id' => 2], // Berita
             ['slug_role' => 'guru', 'menu_id' => 3], // Galeri
-            
+
             // --- ROLE: STAFF TU (Administrasi) ---
             ['slug_role' => 'staff-tu', 'menu_id' => 1], // Dashboard
             ['slug_role' => 'staff-tu', 'menu_id' => 4], // Jurusan

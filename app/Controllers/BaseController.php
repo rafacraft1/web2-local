@@ -20,7 +20,7 @@ abstract class BaseController extends Controller
         // =======================================================
         $role = session()->get('role'); // Ambil role user dari session
         $dynamicMenus = [];
-        
+
         // Jika ada user yang login (memiliki role)
         if ($role) {
             $menuModel = new \App\Models\MenuModel();
