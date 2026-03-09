@@ -14,6 +14,21 @@ abstract class BaseController extends Controller
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
     {
         parent::initController($request, $response, $logger);
+
+        // =======================================================
+        // [BARU] LOGIKA PENARIKAN MENU DINAMIS UNTUK SIDEBAR
+        // =======================================================
+        $role = session()->get('role'); // Ambil role user dari session
+        $dynamicMenus = [];
+        
+        // Jika ada user yang login (memiliki role)
+        if ($role) {
+            $menuModel = new \App\Models\MenuModel();
+            $dynamicMenus = $menuModel->getMenuForRole($role);
+        }
+
+        // Bagikan variabel $dynamicMenus ini ke semua file View (.php) di sistem
+        \Config\Services::renderer()->setData(['dynamicMenus' => $dynamicMenus]);
     }
 
     /**

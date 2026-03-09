@@ -112,6 +112,55 @@ class InitSeeder extends Seeder
         ];
         $this->db->table('mitra')->insertBatch($mitraData);
 
-        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend.\n";
+        // ==========================================
+        // 5. INSERT DATA MENUS (Daftar Menu Tersedia)
+        // ==========================================
+        $menusData = [
+            ['id' => 1, 'title' => 'Dashboard', 'url' => 'panel/dashboard', 'icon' => 'fas fa-tachometer-alt', 'is_active' => 1, 'urutan' => 1],
+            ['id' => 2, 'title' => 'Berita', 'url' => 'panel/berita', 'icon' => 'fas fa-newspaper', 'is_active' => 1, 'urutan' => 2],
+            ['id' => 3, 'title' => 'Galeri', 'url' => 'panel/galeri', 'icon' => 'fas fa-images', 'is_active' => 1, 'urutan' => 3],
+            ['id' => 4, 'title' => 'Jurusan', 'url' => 'panel/jurusan', 'icon' => 'fas fa-graduation-cap', 'is_active' => 1, 'urutan' => 4],
+            ['id' => 5, 'title' => 'Pesan', 'url' => 'panel/pesan', 'icon' => 'fas fa-envelope', 'is_active' => 1, 'urutan' => 5],
+            ['id' => 6, 'title' => 'Mitra', 'url' => 'panel/mitra', 'icon' => 'fas fa-handshake', 'is_active' => 1, 'urutan' => 6],
+            ['id' => 7, 'title' => 'Audit Logs', 'url' => 'panel/audit-logs', 'icon' => 'fas fa-history', 'is_active' => 1, 'urutan' => 97],
+            ['id' => 8, 'title' => 'Manajemen User', 'url' => 'panel/users', 'icon' => 'fas fa-users', 'is_active' => 1, 'urutan' => 98],
+            ['id' => 9, 'title' => 'Pengaturan', 'url' => 'panel/settings', 'icon' => 'fas fa-cog', 'is_active' => 1, 'urutan' => 99],
+        ];
+        $this->db->table('menus')->insertBatch($menusData);
+
+        // ==========================================
+        // 6. INSERT ROLE_MENU_ACCESS (Aturan Akses)
+        // ==========================================
+        $roleMenuData = [
+            // --- ROLE: ADMIN (Bisa Akses Semua Menu) ---
+            ['slug_role' => 'admin', 'menu_id' => 1],
+            ['slug_role' => 'admin', 'menu_id' => 2],
+            ['slug_role' => 'admin', 'menu_id' => 3],
+            ['slug_role' => 'admin', 'menu_id' => 4],
+            ['slug_role' => 'admin', 'menu_id' => 5],
+            ['slug_role' => 'admin', 'menu_id' => 6],
+            ['slug_role' => 'admin', 'menu_id' => 7],
+            ['slug_role' => 'admin', 'menu_id' => 8],
+            ['slug_role' => 'admin', 'menu_id' => 9],
+            
+            // --- ROLE: KEPALA SEKOLAH (Review) ---
+            ['slug_role' => 'kepala-sekolah', 'menu_id' => 1], // Dashboard
+            ['slug_role' => 'kepala-sekolah', 'menu_id' => 2], // Berita
+            ['slug_role' => 'kepala-sekolah', 'menu_id' => 7], // Audit Logs (Pantau aktivitas)
+            
+            // --- ROLE: GURU (Konten) ---
+            ['slug_role' => 'guru', 'menu_id' => 1], // Dashboard
+            ['slug_role' => 'guru', 'menu_id' => 2], // Berita
+            ['slug_role' => 'guru', 'menu_id' => 3], // Galeri
+            
+            // --- ROLE: STAFF TU (Administrasi) ---
+            ['slug_role' => 'staff-tu', 'menu_id' => 1], // Dashboard
+            ['slug_role' => 'staff-tu', 'menu_id' => 4], // Jurusan
+            ['slug_role' => 'staff-tu', 'menu_id' => 5], // Pesan (Customer Service)
+            ['slug_role' => 'staff-tu', 'menu_id' => 6], // Mitra
+        ];
+        $this->db->table('role_menu_access')->insertBatch($roleMenuData);
+
+        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend dan Menu Dinamis.\n";
     }
 }
