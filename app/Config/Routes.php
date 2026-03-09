@@ -53,30 +53,33 @@ $routes->group('panel', ['filter' => 'roleCheck', 'namespace' => 'App\Controller
         $routes->post('toggle-maintenance', 'Setting::toggleMaintenance');
     });
 
-    // --- Log Aktivitas & Pesan ---
+    // --- Log Aktivitas ---
     $routes->get('audit-logs', 'AuditController::index');
+
+    // --- Pesan Masuk ---
     $routes->group('pesan', function ($routes) {
         $routes->get('/', 'PesanController::index');
         $routes->get('read/(:segment)', 'PesanController::show/$1');
         $routes->delete('delete/(:segment)', 'PesanController::delete/$1');
     });
 
+
     // ==========================================
-    // Task 3: Refactor Rute CRUD menggunakan Array Looping (DRY)
+    // Refactor Rute CRUD (Array Looping)
     // ==========================================
-    
-    // Manajemen Pengguna (Dipisah karena punya struktur rute sedikit berbeda misal: toggle)
+
+    // Manajemen Pengguna (Dipisah karena punya rute tambahan seperti 'toggle' dan post '/')
     $routes->group('users', function ($routes) {
         $routes->get('/', 'UserController::index');
         $routes->get('create', 'UserController::create');
-        $routes->post('/', 'UserController::store'); 
+        $routes->post('/', 'UserController::store');
         $routes->get('edit/(:segment)', 'UserController::edit/$1');
         $routes->post('update/(:segment)', 'UserController::update/$1');
         $routes->post('toggle/(:segment)', 'UserController::toggleStatus/$1');
         $routes->delete('delete/(:segment)', 'UserController::delete/$1');
     });
 
-    // Rute Modul Standar (Berita, Jurusan, Galeri, Mitra)
+    // Modul Standar CRUD (Berita, Jurusan, Galeri, Mitra)
     $crudModules = [
         'berita'  => 'BeritaController',
         'jurusan' => 'JurusanController',
@@ -84,6 +87,7 @@ $routes->group('panel', ['filter' => 'roleCheck', 'namespace' => 'App\Controller
         'mitra'   => 'MitraController'
     ];
 
+    // Melakukan perulangan untuk membuat rute secara otomatis
     foreach ($crudModules as $path => $controller) {
         $routes->group($path, function ($routes) use ($controller) {
             $routes->get('/', "$controller::index");
