@@ -32,34 +32,30 @@ class UserController extends BaseController
 
     public function store()
     {
-        // Validasi tambahan untuk password wajib di 'create'
-        if (empty($this->request->getPost('password'))) {
+        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'role']);
+        $password  = $this->request->getPost('password');
+
+        if (empty($password)) {
             return redirect()->back()->withInput()->with('error', 'Password wajib diisi.');
         }
 
-        $data = [
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'username'     => $this->request->getPost('username'),
-            'password'     => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
-            'role'         => $this->request->getPost('role'),
-            'is_active'    => 1
-        ];
+        $inputData['password']  = password_hash($password, PASSWORD_DEFAULT);
+        $inputData['is_active'] = 1;
 
-        $this->userModel->db->transStart();
-
-        if (!$this->userModel->insert($data)) {
+        if (!$this->userModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
         }
 
+        $this->userModel->db->transStart();
+        $this->userModel->skipValidation(true)->insert($inputData);
         $insertId = $this->userModel->getInsertID();
-        log_activity('CREATE', 'users', $insertId, null, ['username' => $data['username']]);
-
         $this->userModel->db->transComplete();
 
         if ($this->userModel->db->transStatus() === false) {
             return redirect()->back()->withInput()->with('error', 'Gagal menyimpan data user.');
         }
 
+        log_activity('CREATE', 'users', $insertId, null, ['username' => $inputData['username']]);
         return redirect()->to('panel/users')->with('success', 'User baru berhasil ditambahkan.');
     }
 
@@ -86,33 +82,27 @@ class UserController extends BaseController
         $userLama = $this->userModel->find($id);
         if (!$userLama) return redirect()->to('panel/users')->with('error', 'Data tidak ditemukan.');
 
-        $data = [
-            'id'           => $id,
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'username'     => $this->request->getPost('username'),
-            'role'         => $this->request->getPost('role'),
-        ];
+        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'role']);
+        $inputData['id'] = $id;
 
-        // Hanya update password jika diisi
         $passwordBaru = $this->request->getPost('password');
         if (!empty($passwordBaru)) {
-            $data['password'] = password_hash($passwordBaru, PASSWORD_DEFAULT);
+            $inputData['password'] = password_hash($passwordBaru, PASSWORD_DEFAULT);
         }
 
-        $this->userModel->db->transStart();
-
-        if (!$this->userModel->update($id, $data)) {
+        if (!$this->userModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
         }
 
-        log_activity('UPDATE', 'users', $id, ['username' => $userLama['username']], ['username' => $data['username']]);
-
+        $this->userModel->db->transStart();
+        $this->userModel->skipValidation(true)->update($id, $inputData);
         $this->userModel->db->transComplete();
 
         if ($this->userModel->db->transStatus() === false) {
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data user.');
         }
 
+        log_activity('UPDATE', 'users', $id, ['username' => $userLama['username']], ['username' => $inputData['username']]);
         return redirect()->to('panel/users')->with('success', 'Data user berhasil diperbarui.');
     }
 
@@ -124,11 +114,16 @@ class UserController extends BaseController
         $user = $this->userModel->find($id);
         if ($user) {
             $newStatus = ($user['is_active'] == 1) ? 0 : 1;
-            $this->userModel->update($id, ['is_active' => $newStatus]);
+            
+            $this->userModel->db->transStart();
+            $this->userModel->skipValidation(true)->update($id, ['is_active' => $newStatus]);
+            $this->userModel->db->transComplete();
 
-            log_activity('UPDATE', 'users', $id, ['is_active' => $user['is_active']], ['is_active' => $newStatus]);
-
-            return redirect()->to('panel/users')->with('success', 'Status user berhasil diubah.');
+            if ($this->userModel->db->transStatus() !== false) {
+                log_activity('UPDATE', 'users', $id, ['is_active' => $user['is_active']], ['is_active' => $newStatus]);
+                return redirect()->to('panel/users')->with('success', 'Status user berhasil diubah.');
+            }
+            return redirect()->to('panel/users')->with('error', 'Gagal merubah status user.');
         }
 
         return redirect()->to('panel/users')->with('error', 'User tidak ditemukan.');
@@ -139,7 +134,6 @@ class UserController extends BaseController
         $id = $this->decryptId($safeId);
         if (!$id) return redirect()->to('panel/users')->with('error', 'Akses ditolak.');
 
-        // Proteksi agar admin tidak menghapus dirinya sendiri
         if ($id == session()->get('user_id')) {
             return redirect()->to('panel/users')->with('error', 'Anda tidak dapat menghapus akun sendiri.');
         }
@@ -147,14 +141,11 @@ class UserController extends BaseController
         $user = $this->userModel->find($id);
         if ($user) {
             $this->userModel->db->transStart();
-
             $this->userModel->delete($id);
-            log_activity('DELETE', 'users', $id, ['username' => $user['username']], null);
-
             $this->userModel->db->transComplete();
 
             if ($this->userModel->db->transStatus() !== false) {
-                // Task: Hapus file avatar fisik jika ada
+                log_activity('DELETE', 'users', $id, ['username' => $user['username']], null);
                 if (!empty($user['avatar'])) {
                     $path = FCPATH . 'uploads/avatars/' . $user['avatar'];
                     if (is_file($path)) unlink($path);

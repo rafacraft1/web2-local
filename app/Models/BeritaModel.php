@@ -36,12 +36,12 @@ class BeritaModel extends Model
         'content'  => 'required|min_length[20]',
     ];
 
-    // --- Task 3.1: Tambahkan Return Type Declarations ---
+    // --- Task 3.1 & Task 5: Return Type Declarations & Hindari Hardcode Nama Tabel ---
     public function getBeritaWithAuthor(): array
     {
-        return $this->select('berita.*, users.nama_lengkap AS penulis')
-            ->join('users', 'users.id = berita.user_id', 'left')
-            ->orderBy('berita.created_at', 'DESC')
+        return $this->select($this->table . '.*, users.nama_lengkap AS penulis')
+            ->join('users', 'users.id = ' . $this->table . '.user_id', 'left')
+            ->orderBy($this->table . '.created_at', 'DESC')
             ->findAll();
     }
 }

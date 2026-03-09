@@ -24,7 +24,6 @@ class UserModel extends Model
     protected $useTimestamps = true;
     protected $updatedField  = 'updated_at';
 
-    // --- Task: Validasi dipindah ke Model (Fat Model) ---
     protected $validationRules = [
         'id'           => 'permit_empty|is_natural_no_zero',
         'nama_lengkap' => 'required|min_length[3]|max_length[100]',

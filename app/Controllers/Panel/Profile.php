@@ -44,26 +44,19 @@ class Profile extends BaseController
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui profil. Username/Email mungkin sudah dipakai.');
         }
 
-        $postData = [
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'username'     => $this->request->getPost('username'),
-            'email'        => $this->request->getPost('email')
-        ];
+        $postData = $this->request->getPost(['nama_lengkap', 'username', 'email']);
 
-        // Transaksi Database dimulai
         $this->userModel->db->transStart();
-
-        // Kita bypass validasi model global karena profil memiliki rule khusus (tanpa 'role')
         $this->userModel->skipValidation(true)->update($userId, $postData);
-        log_activity('UPDATE', 'users', $userId, ['nama_lengkap' => $userLama['nama_lengkap']], ['nama_lengkap' => $postData['nama_lengkap']]);
-
         $this->userModel->db->transComplete();
 
         if ($this->userModel->db->transStatus() === false) {
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui informasi profil.');
         }
 
-        // Update session jika berhasil
+        // Task 6: Log setelah dipastikan sukses
+        log_activity('UPDATE', 'users', $userId, ['nama_lengkap' => $userLama['nama_lengkap']], ['nama_lengkap' => $postData['nama_lengkap']]);
+
         session()->set([
             'nama_lengkap' => $postData['nama_lengkap'],
             'username'     => $postData['username'],
@@ -98,19 +91,18 @@ class Profile extends BaseController
             return redirect()->to('panel/profile?tab=password')->with('error', 'Password lama salah.');
         }
 
-        // Transaksi Database
         $this->userModel->db->transStart();
-
         $this->userModel->skipValidation(true)->update($userId, [
             'password_hash' => password_hash($passwordBaru, PASSWORD_BCRYPT)
         ]);
-        log_activity('UPDATE', 'users', $userId, ['aksi' => 'Ubah Password'], null);
-
         $this->userModel->db->transComplete();
 
         if ($this->userModel->db->transStatus() === false) {
             return redirect()->to('panel/profile?tab=password')->with('error', 'Gagal mengubah password.');
         }
+
+        // Task 6: Log setelah dipastikan sukses
+        log_activity('UPDATE', 'users', $userId, ['aksi' => 'Ubah Password'], null);
 
         return redirect()->to('panel/profile?tab=password')->with('success', 'Password berhasil diperbarui.');
     }

@@ -20,7 +20,6 @@ class MitraModel extends Model
     protected $useTimestamps = true;
     protected $updatedField  = 'updated_at';
 
-    // --- Validasi dipindah ke Model ---
     protected $validationRules = [
         'id'   => 'permit_empty|is_natural_no_zero',
         'nama' => 'required|min_length[2]'

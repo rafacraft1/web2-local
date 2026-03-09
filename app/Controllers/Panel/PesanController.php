@@ -31,7 +31,6 @@ class PesanController extends BaseController
         $pesan = $this->pesanModel->find($id);
         if (!$pesan) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
 
-        // Tandai sebagai dibaca jika belum
         if ($pesan['is_read'] == 0) {
             $this->pesanModel->update($id, ['is_read' => 1]);
         }
@@ -50,13 +49,12 @@ class PesanController extends BaseController
         $pesan = $this->pesanModel->find($id);
         if ($pesan) {
             $this->pesanModel->db->transStart();
-
             $this->pesanModel->delete($id);
-            log_activity('DELETE', 'pesan', $id, ['subjek' => $pesan['subjek']], null);
-
             $this->pesanModel->db->transComplete();
 
             if ($this->pesanModel->db->transStatus() !== false) {
+                // Task 6: Log dipindah ke sini setelah dipastikan sukses
+                log_activity('DELETE', 'pesan', $id, ['subjek' => $pesan['subjek']], null);
                 return redirect()->to('panel/pesan')->with('success', 'Pesan berhasil dihapus.');
             }
             return redirect()->to('panel/pesan')->with('error', 'Gagal menghapus pesan.');

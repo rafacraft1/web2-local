@@ -75,22 +75,22 @@ class Home extends BaseController
         ]);
     }
 
-    public function detailBerita($slug)
+public function detailBerita($slug)
     {
         $beritaModel = new BeritaModel();
+        $tabelBerita = $beritaModel->table; // Ambil nama tabel secara dinamis
 
-        // Menggunakan method dari model atau Query Builder melalui Model
-        $berita = $beritaModel->select('berita.*, users.nama_lengkap AS penulis')
-            ->join('users', 'users.id = berita.user_id', 'left')
-            ->where('berita.slug', $slug)
-            ->where('berita.status', 'published')
+        // Task 5: Gunakan variabel $tabelBerita alih-alih hardcode string 'berita'
+        $berita = $beritaModel->select($tabelBerita . '.*, users.nama_lengkap AS penulis')
+            ->join('users', 'users.id = ' . $tabelBerita . '.user_id', 'left')
+            ->where($tabelBerita . '.slug', $slug)
+            ->where($tabelBerita . '.status', 'published')
             ->first();
 
         if (!$berita) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Berita tidak ditemukan.');
         }
 
-        // Ambil 6 berita terbaru lainnya untuk rekomendasi
         $recentBerita = $beritaModel->where('status', 'published')
             ->where('id !=', $berita['id'])
             ->orderBy('created_at', 'DESC')

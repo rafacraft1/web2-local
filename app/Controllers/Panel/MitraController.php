@@ -32,40 +32,37 @@ class MitraController extends BaseController
 
     public function store()
     {
+        $inputData  = $this->request->getPost(['nama']);
         $logoBase64 = $this->request->getPost('logo_base64');
+        
         if (empty($logoBase64)) {
             return redirect()->back()->withInput()->with('error', 'Logo mitra wajib diisi.');
         }
 
-        $slug = url_title($this->request->getPost('nama'), '-', true);
-        $namaLogo   = 'mitra-' . $slug . '-' . time() . '.webp';
+        $slug = url_title($inputData['nama'], '-', true);
+        $namaLogo = 'mitra-' . $slug . '-' . time() . '.webp';
+        $inputData['logo'] = $namaLogo;
 
-        $data = [
-            'nama' => $this->request->getPost('nama'),
-            'logo' => $namaLogo
-        ];
-
-        $this->mitraModel->db->transStart();
-
-        if (!$this->mitraModel->insert($data)) {
+        if (!$this->mitraModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->mitraModel->errors());
         }
 
-        $insertId = $this->mitraModel->getInsertID();
-
         $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogo);
         if (!$uploadProses['success']) {
-            $this->mitraModel->db->transRollback();
             return redirect()->back()->withInput()->with('error', $uploadProses['error']);
         }
 
-        log_activity('CREATE', 'mitra', $insertId, null, ['nama' => $data['nama']]);
+        $this->mitraModel->db->transStart();
+        $this->mitraModel->skipValidation(true)->insert($inputData);
+        $insertId = $this->mitraModel->getInsertID();
         $this->mitraModel->db->transComplete();
 
         if ($this->mitraModel->db->transStatus() === false) {
+            $this->hapusGambarFisik($namaLogo);
             return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem.');
         }
 
+        log_activity('CREATE', 'mitra', $insertId, null, ['nama' => $inputData['nama']]);
         return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil ditambahkan.');
     }
 
@@ -92,41 +89,47 @@ class MitraController extends BaseController
         $mitraLama = $this->mitraModel->find($id);
         if (!$mitraLama) return redirect()->to('panel/mitra')->with('error', 'Data tidak ditemukan.');
 
-        $slug = url_title($this->request->getPost('nama'), '-', true);
+        $inputData = $this->request->getPost(['nama']);
+        $inputData['id'] = $id;
+        $slug = url_title($inputData['nama'], '-', true);
+        
         $logoBase64 = $this->request->getPost('logo_base64');
+        $namaLogoFinal = $mitraLama['logo'];
 
-        $data = [
-            'id'   => $id,
-            'nama' => $this->request->getPost('nama'),
-            'logo' => $mitraLama['logo']
-        ];
-
-        $this->mitraModel->db->transStart();
-
-        if (!$this->mitraModel->update($id, $data)) {
+        if (!$this->mitraModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->mitraModel->errors());
         }
+
+        $logoBaruBerhasilUpload = false;
 
         if (!empty($logoBase64)) {
             $namaLogoBaru = 'mitra-' . $slug . '-' . time() . '.webp';
             $uploadProses = $this->processBase64Image($logoBase64, 'mitra', $namaLogoBaru);
 
             if (!$uploadProses['success']) {
-                $this->mitraModel->db->transRollback();
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-
-            $this->hapusGambarFisik($mitraLama['logo']);
-            $this->mitraModel->update($id, ['logo' => $namaLogoBaru]);
+            
+            $namaLogoFinal = $namaLogoBaru;
+            $logoBaruBerhasilUpload = true;
         }
 
-        log_activity('UPDATE', 'mitra', $id, ['nama' => $mitraLama['nama']], ['nama' => $data['nama']]);
+        $inputData['logo'] = $namaLogoFinal;
+
+        $this->mitraModel->db->transStart();
+        $this->mitraModel->skipValidation(true)->update($id, $inputData);
         $this->mitraModel->db->transComplete();
 
         if ($this->mitraModel->db->transStatus() === false) {
+            if ($logoBaruBerhasilUpload) $this->hapusGambarFisik($namaLogoFinal);
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
         }
 
+        if ($logoBaruBerhasilUpload) {
+            $this->hapusGambarFisik($mitraLama['logo']);
+        }
+
+        log_activity('UPDATE', 'mitra', $id, ['nama' => $mitraLama['nama']], ['nama' => $inputData['nama']]);
         return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil diperbarui.');
     }
 
@@ -139,13 +142,11 @@ class MitraController extends BaseController
 
         if ($mitra) {
             $this->mitraModel->db->transStart();
-
             $this->mitraModel->delete($id);
-            log_activity('DELETE', 'mitra', $id, ['nama' => $mitra['nama']], null);
-
             $this->mitraModel->db->transComplete();
 
             if ($this->mitraModel->db->transStatus() !== false) {
+                log_activity('DELETE', 'mitra', $id, ['nama' => $mitra['nama']], null);
                 $this->hapusGambarFisik($mitra['logo']);
                 return redirect()->to('panel/mitra')->with('success', 'Data mitra berhasil dihapus.');
             }
@@ -155,14 +156,11 @@ class MitraController extends BaseController
         return redirect()->to('panel/mitra')->with('error', 'Data tidak ditemukan.');
     }
 
-    // --- Fungsi DRY untuk hapus gambar ---
     private function hapusGambarFisik($namaFile)
     {
         if (!empty($namaFile)) {
             $path = FCPATH . 'uploads/mitra/' . $namaFile;
-            if (is_file($path)) {
-                unlink($path);
-            }
+            if (is_file($path)) unlink($path);
         }
     }
 }

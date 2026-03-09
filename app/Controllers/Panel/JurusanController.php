@@ -32,45 +32,37 @@ class JurusanController extends BaseController
 
     public function store()
     {
+        $inputData   = $this->request->getPost(['name', 'short_desc', 'description', 'icon']);
         $imageBase64 = $this->request->getPost('image_base64');
+        
         if (empty($imageBase64)) {
             return redirect()->back()->withInput()->with('error', 'Gambar jurusan wajib diisi.');
         }
 
-        $slug = url_title($this->request->getPost('name'), '-', true);
-        $namaGambar  = $slug . '-' . time() . '.webp';
+        $inputData['slug'] = url_title($inputData['name'], '-', true);
+        $namaGambar = $inputData['slug'] . '-' . time() . '.webp';
+        $inputData['image'] = $namaGambar;
 
-        $data = [
-            'name'        => $this->request->getPost('name'),
-            'slug'        => $slug,
-            'short_desc'  => $this->request->getPost('short_desc'),
-            'description' => $this->request->getPost('description'),
-            'icon'        => $this->request->getPost('icon'),
-            'image'       => $namaGambar
-        ];
-
-        $this->jurusanModel->db->transStart();
-
-        if (!$this->jurusanModel->insert($data)) {
+        if (!$this->jurusanModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->jurusanModel->errors());
         }
 
-        $insertId = $this->jurusanModel->getInsertID();
-
-        // --- PROSES UPLOAD BASE64 ---
         $uploadProses = $this->processBase64Image($imageBase64, 'jurusan', $namaGambar);
         if (!$uploadProses['success']) {
-            $this->jurusanModel->db->transRollback();
             return redirect()->back()->withInput()->with('error', $uploadProses['error']);
         }
 
-        log_activity('CREATE', 'jurusan', $insertId, null, ['name' => $data['name']]);
+        $this->jurusanModel->db->transStart();
+        $this->jurusanModel->skipValidation(true)->insert($inputData);
+        $insertId = $this->jurusanModel->getInsertID();
         $this->jurusanModel->db->transComplete();
 
         if ($this->jurusanModel->db->transStatus() === false) {
+            $this->hapusGambarFisik($namaGambar);
             return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem.');
         }
 
+        log_activity('CREATE', 'jurusan', $insertId, null, ['name' => $inputData['name']]);
         return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil ditambahkan.');
     }
 
@@ -97,45 +89,47 @@ class JurusanController extends BaseController
         $jurusanLama = $this->jurusanModel->find($id);
         if (!$jurusanLama) return redirect()->to('panel/jurusan')->with('error', 'Data tidak ditemukan.');
 
-        $slug = url_title($this->request->getPost('name'), '-', true);
+        $inputData = $this->request->getPost(['name', 'short_desc', 'description', 'icon']);
+        $inputData['id']   = $id;
+        $inputData['slug'] = url_title($inputData['name'], '-', true);
+        
         $imageBase64 = $this->request->getPost('image_base64');
+        $namaGambarFinal = $jurusanLama['image'];
 
-        $data = [
-            'id'          => $id,
-            'name'        => $this->request->getPost('name'),
-            'slug'        => $slug,
-            'short_desc'  => $this->request->getPost('short_desc'),
-            'description' => $this->request->getPost('description'),
-            'icon'        => $this->request->getPost('icon'),
-            'image'       => $jurusanLama['image']
-        ];
-
-        $this->jurusanModel->db->transStart();
-
-        if (!$this->jurusanModel->update($id, $data)) {
+        if (!$this->jurusanModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->jurusanModel->errors());
         }
 
+        $gambarBaruBerhasilUpload = false;
+
         if (!empty($imageBase64)) {
-            $namaGambarBaru = $slug . '-' . time() . '.webp';
+            $namaGambarBaru = $inputData['slug'] . '-' . time() . '.webp';
             $uploadProses   = $this->processBase64Image($imageBase64, 'jurusan', $namaGambarBaru);
 
             if (!$uploadProses['success']) {
-                $this->jurusanModel->db->transRollback();
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-
-            $this->hapusGambarFisik($jurusanLama['image']);
-            $this->jurusanModel->update($id, ['image' => $namaGambarBaru]);
+            
+            $namaGambarFinal = $namaGambarBaru;
+            $gambarBaruBerhasilUpload = true;
         }
 
-        log_activity('UPDATE', 'jurusan', $id, ['name' => $jurusanLama['name']], ['name' => $data['name']]);
+        $inputData['image'] = $namaGambarFinal;
+
+        $this->jurusanModel->db->transStart();
+        $this->jurusanModel->skipValidation(true)->update($id, $inputData);
         $this->jurusanModel->db->transComplete();
 
         if ($this->jurusanModel->db->transStatus() === false) {
+            if ($gambarBaruBerhasilUpload) $this->hapusGambarFisik($namaGambarFinal);
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
         }
 
+        if ($gambarBaruBerhasilUpload) {
+            $this->hapusGambarFisik($jurusanLama['image']);
+        }
+
+        log_activity('UPDATE', 'jurusan', $id, ['name' => $jurusanLama['name']], ['name' => $inputData['name']]);
         return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil diperbarui.');
     }
 
@@ -148,13 +142,11 @@ class JurusanController extends BaseController
 
         if ($jurusan) {
             $this->jurusanModel->db->transStart();
-
             $this->jurusanModel->delete($id);
-            log_activity('DELETE', 'jurusan', $id, ['name' => $jurusan['name']], null);
-
             $this->jurusanModel->db->transComplete();
 
             if ($this->jurusanModel->db->transStatus() !== false) {
+                log_activity('DELETE', 'jurusan', $id, ['name' => $jurusan['name']], null);
                 $this->hapusGambarFisik($jurusan['image']);
                 return redirect()->to('panel/jurusan')->with('success', 'Jurusan berhasil dihapus.');
             }
@@ -164,14 +156,11 @@ class JurusanController extends BaseController
         return redirect()->to('panel/jurusan')->with('error', 'Data tidak ditemukan.');
     }
 
-    // --- Fungsi DRY untuk hapus gambar ---
     private function hapusGambarFisik($namaFile)
     {
         if (!empty($namaFile)) {
             $path = FCPATH . 'uploads/jurusan/' . $namaFile;
-            if (is_file($path)) {
-                unlink($path);
-            }
+            if (is_file($path)) unlink($path);
         }
     }
 }

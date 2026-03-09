@@ -16,16 +16,16 @@ class AuditLogModel extends Model
      */
     public function getLogsWithFilter($filters = []): array
     {
-        $builder = $this->orderBy('created_at', 'DESC');
+        $builder = $this->orderBy($this->table . '.created_at', 'DESC');
 
         if (!empty($filters['user_id'])) {
-            $builder->where('user_id', $filters['user_id']);
+            $builder->where($this->table . '.user_id', $filters['user_id']);
         }
         if (!empty($filters['module'])) {
-            $builder->where('module', $filters['module']);
+            $builder->where($this->table . '.module', $filters['module']);
         }
         if (!empty($filters['action'])) {
-            $builder->where('action', $filters['action']);
+            $builder->where($this->table . '.action', $filters['action']);
         }
 
         // paginate() mengembalikan array record berdasarkan returnType kelas
@@ -37,9 +37,9 @@ class AuditLogModel extends Model
      */
     public function getUniqueUsers(): array
     {
-        return $this->select('user_id, MAX(nama_user) as nama_user')
-            ->where('user_id IS NOT NULL')
-            ->groupBy('user_id')
+        return $this->select($this->table . '.user_id, MAX(' . $this->table . '.nama_user) as nama_user')
+            ->where($this->table . '.user_id IS NOT NULL')
+            ->groupBy($this->table . '.user_id')
             ->findAll();
     }
 }
