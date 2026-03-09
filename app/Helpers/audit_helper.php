@@ -13,10 +13,16 @@ function log_activity($action, $module, $record_id = null, $old = null, $new = n
     $db = \Config\Database::connect();
     $request = \Config\Services::request();
 
+    // ========================================================
+    // OPTIMASI #5: Penanganan jika session kosong (belum login)
+    // ========================================================
+    $userId   = session()->get('user_id') ?? null;
+    $namaUser = session()->get('nama_lengkap') ?? 'Sistem / Guest';
+
     // Siapkan data log
     $logData = [
-        'user_id'    => session()->get('user_id'),
-        'nama_user'  => session()->get('nama_lengkap'), // Diambil dari session login
+        'user_id'    => $userId,
+        'nama_user'  => $namaUser,
         'action'     => strtoupper($action),
         'module'     => strtolower($module),
         'record_id'  => $record_id,

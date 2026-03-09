@@ -19,6 +19,17 @@ class Auth extends BaseController
 
     public function process()
     {
+        // ========================================================
+        // OPTIMASI #4: Rate Limiting (Maksimal 5 percobaan per menit)
+        // ========================================================
+        $throttler = \Config\Services::throttler();
+        $ipAddress = $this->request->getIPAddress();
+
+        // Membatasi 5 request per menit (60 detik) untuk IP yang sama
+        if ($throttler->check("login_attempt_{$ipAddress}", 5, MINUTE) === false) {
+            return redirect()->back()->with('error', 'Terlalu banyak percobaan login gagal. Silakan coba lagi dalam 1 menit.');
+        }
+
         // Validasi input form dasar
         $rules = [
             'username' => 'required',
@@ -44,14 +55,28 @@ class Auth extends BaseController
                 return redirect()->back()->withInput()->with('error', 'Akun Anda telah dinonaktifkan. Silakan hubungi Administrator.');
             }
 
+            // ========================================================
+            // OPTIMASI #1: Ambil hak akses modul (permissions) dari database
+            // ========================================================
+            $db = \Config\Database::connect();
+            $permissions = $db->table('role_permissions')
+                ->where('slug_role', $user['role'])
+                ->select('nama_modul')
+                ->get()
+                ->getResultArray();
+
+            // Ubah array multidimensi menjadi array 1 dimensi (hanya list nama_modul)
+            $allowedModules = array_column($permissions, 'nama_modul');
+
             $sessionData = [
-                'user_id'      => $user['id'],
-                'username'     => $user['username'],
-                'nama_lengkap' => $user['nama_lengkap'],
-                'email'        => $user['email'],
-                'role'         => $user['role'],
-                'avatar'       => $user['avatar'],
-                'isLoggedIn'   => true
+                'user_id'         => $user['id'],
+                'username'        => $user['username'],
+                'nama_lengkap'    => $user['nama_lengkap'],
+                'email'           => $user['email'],
+                'role'            => $user['role'],
+                'avatar'          => $user['avatar'],
+                'isLoggedIn'      => true,
+                'allowed_modules' => $allowedModules // Simpan list modul yang diizinkan ke session
             ];
             session()->set($sessionData);
 
