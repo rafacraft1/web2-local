@@ -24,11 +24,20 @@ abstract class BaseController extends Controller
         // Jika ada user yang login (memiliki role)
         if ($role) {
             $menuModel = new \App\Models\MenuModel();
-            $dynamicMenus = $menuModel->getMenuForRole($role);
+
+            // Jika role adalah admin, ambil SEMUA menu yang aktif
+            // Jika role lain (guru, tu, dll), ambil berdasarkan relasi hak akses
+            if ($role === 'admin') {
+                $dynamicMenus = $menuModel->where('is_active', 1)
+                    ->orderBy('urutan', 'ASC')
+                    ->findAll();
+            } else {
+                $dynamicMenus = $menuModel->getMenuForRole($role);
+            }
         }
 
         // Bagikan variabel $dynamicMenus ini ke semua file View (.php) di sistem
-        \Config\Services::renderer()->setData(['dynamicMenus' => $dynamicMenus]);
+        \Config\Services::renderer()->setVar('dynamicMenus', $dynamicMenus);
     }
 
     /**

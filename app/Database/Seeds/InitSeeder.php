@@ -122,14 +122,16 @@ class InitSeeder extends Seeder
             ['id' => 4, 'title' => 'Jurusan', 'url' => 'panel/jurusan', 'icon' => 'fas fa-graduation-cap', 'is_active' => 1, 'urutan' => 4],
             ['id' => 5, 'title' => 'Pesan', 'url' => 'panel/pesan', 'icon' => 'fas fa-envelope', 'is_active' => 1, 'urutan' => 5],
             ['id' => 6, 'title' => 'Mitra', 'url' => 'panel/mitra', 'icon' => 'fas fa-handshake', 'is_active' => 1, 'urutan' => 6],
-            ['id' => 7, 'title' => 'Audit Logs', 'url' => 'panel/audit-logs', 'icon' => 'fas fa-history', 'is_active' => 1, 'urutan' => 97],
-            ['id' => 8, 'title' => 'Manajemen User', 'url' => 'panel/users', 'icon' => 'fas fa-users', 'is_active' => 1, 'urutan' => 98],
-            ['id' => 9, 'title' => 'Pengaturan', 'url' => 'panel/settings', 'icon' => 'fas fa-cog', 'is_active' => 1, 'urutan' => 99],
+            ['id' => 7, 'title' => 'Audit Logs', 'url' => 'panel/audit-logs', 'icon' => 'fas fa-history', 'is_active' => 1, 'urutan' => 96],
+            ['id' => 8, 'title' => 'Manajemen User', 'url' => 'panel/users', 'icon' => 'fas fa-users', 'is_active' => 1, 'urutan' => 97],
+            // TAMBAHAN: Menu Hak Akses Role
+            ['id' => 9, 'title' => 'Hak Akses Role', 'url' => 'panel/roles', 'icon' => 'fas fa-shield-alt', 'is_active' => 1, 'urutan' => 98],
+            ['id' => 10, 'title' => 'Pengaturan', 'url' => 'panel/settings', 'icon' => 'fas fa-cog', 'is_active' => 1, 'urutan' => 99],
         ];
         $this->db->table('menus')->insertBatch($menusData);
 
         // ==========================================
-        // 6. INSERT ROLE_MENU_ACCESS (Aturan Akses)
+        // 6. INSERT ROLE_MENU_ACCESS (Aturan Akses Sidebar)
         // ==========================================
         $roleMenuData = [
             // --- ROLE: ADMIN (Bisa Akses Semua Menu) ---
@@ -141,12 +143,13 @@ class InitSeeder extends Seeder
             ['slug_role' => 'admin', 'menu_id' => 6],
             ['slug_role' => 'admin', 'menu_id' => 7],
             ['slug_role' => 'admin', 'menu_id' => 8],
-            ['slug_role' => 'admin', 'menu_id' => 9],
+            ['slug_role' => 'admin', 'menu_id' => 9],  // Akses menu Hak Akses Role
+            ['slug_role' => 'admin', 'menu_id' => 10], // Akses menu Pengaturan
 
             // --- ROLE: KEPALA SEKOLAH (Review) ---
             ['slug_role' => 'kepala-sekolah', 'menu_id' => 1], // Dashboard
             ['slug_role' => 'kepala-sekolah', 'menu_id' => 2], // Berita
-            ['slug_role' => 'kepala-sekolah', 'menu_id' => 7], // Audit Logs (Pantau aktivitas)
+            ['slug_role' => 'kepala-sekolah', 'menu_id' => 7], // Audit Logs
 
             // --- ROLE: GURU (Konten) ---
             ['slug_role' => 'guru', 'menu_id' => 1], // Dashboard
@@ -156,11 +159,45 @@ class InitSeeder extends Seeder
             // --- ROLE: STAFF TU (Administrasi) ---
             ['slug_role' => 'staff-tu', 'menu_id' => 1], // Dashboard
             ['slug_role' => 'staff-tu', 'menu_id' => 4], // Jurusan
-            ['slug_role' => 'staff-tu', 'menu_id' => 5], // Pesan (Customer Service)
+            ['slug_role' => 'staff-tu', 'menu_id' => 5], // Pesan
             ['slug_role' => 'staff-tu', 'menu_id' => 6], // Mitra
         ];
         $this->db->table('role_menu_access')->insertBatch($roleMenuData);
 
-        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend dan Menu Dinamis.\n";
+        // ==========================================
+        // 7. INSERT ROLE_PERMISSIONS (Keamanan Akses Rute)
+        // ==========================================
+        $rolePermissionsData = [
+            // --- ROLE: ADMIN ---
+            ['slug_role' => 'admin', 'nama_modul' => 'dashboard'],
+            ['slug_role' => 'admin', 'nama_modul' => 'berita'],
+            ['slug_role' => 'admin', 'nama_modul' => 'galeri'],
+            ['slug_role' => 'admin', 'nama_modul' => 'jurusan'],
+            ['slug_role' => 'admin', 'nama_modul' => 'pesan'],
+            ['slug_role' => 'admin', 'nama_modul' => 'mitra'],
+            ['slug_role' => 'admin', 'nama_modul' => 'audit-logs'],
+            ['slug_role' => 'admin', 'nama_modul' => 'users'],
+            ['slug_role' => 'admin', 'nama_modul' => 'roles'], // Izin rute roles
+            ['slug_role' => 'admin', 'nama_modul' => 'settings'],
+
+            // --- ROLE: KEPALA SEKOLAH ---
+            ['slug_role' => 'kepala-sekolah', 'nama_modul' => 'dashboard'],
+            ['slug_role' => 'kepala-sekolah', 'nama_modul' => 'berita'],
+            ['slug_role' => 'kepala-sekolah', 'nama_modul' => 'audit-logs'],
+
+            // --- ROLE: GURU ---
+            ['slug_role' => 'guru', 'nama_modul' => 'dashboard'],
+            ['slug_role' => 'guru', 'nama_modul' => 'berita'],
+            ['slug_role' => 'guru', 'nama_modul' => 'galeri'],
+
+            // --- ROLE: STAFF TU ---
+            ['slug_role' => 'staff-tu', 'nama_modul' => 'dashboard'],
+            ['slug_role' => 'staff-tu', 'nama_modul' => 'jurusan'],
+            ['slug_role' => 'staff-tu', 'nama_modul' => 'pesan'],
+            ['slug_role' => 'staff-tu', 'nama_modul' => 'mitra'],
+        ];
+        $this->db->table('role_permissions')->insertBatch($rolePermissionsData);
+
+        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend, Menu Dinamis, dan Keamanan Rute.\n";
     }
 }

@@ -98,4 +98,11 @@ $routes->group('panel', ['filter' => 'roleCheck', 'namespace' => 'App\Controller
             $routes->delete('delete/(:segment)', "$controller::delete/$1");
         });
     }
+
+    // --- Manajemen Role & Hak Akses ---
+    $routes->group('roles', function ($routes) {
+        $routes->get('/', 'RoleController::index');
+        $routes->get('access/(:segment)', 'RoleController::access/$1');
+        $routes->post('saveAccess/(:segment)', 'RoleController::saveAccess/$1');
+    });
 });

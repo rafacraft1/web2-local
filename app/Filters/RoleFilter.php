@@ -41,9 +41,14 @@ class RoleFilter implements FilterInterface
         // ========================================================
         $allowedModules = $session->get('allowed_modules') ?? [];
 
-        // Cek apakah modul yang diakses ada di dalam array session yang diizinkan
-        if (!in_array($module, $allowedModules)) {
-            // PERBAIKAN: Hindari redirect()->back() untuk mencegah infinite loop
+        // ========================================================
+        // PERBAIKAN BUG: Izinkan modul dasar agar tidak terjadi Infinite Loop
+        // ========================================================
+        $defaultModules = ['dashboard', 'profile', 'logout'];
+
+        // Cek apakah modul yang diakses BUKAN modul dasar, DAN tidak ada di session yang diizinkan
+        if (!in_array($module, $defaultModules) && !in_array($module, $allowedModules)) {
+            // Redirect ke dashboard aman karena dashboard masuk dalam $defaultModules
             return redirect()->to('panel/dashboard')->with('error', 'Anda tidak memiliki hak akses ke modul ini.');
         }
     }
