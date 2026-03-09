@@ -177,7 +177,7 @@ class InitSeeder extends Seeder
             ['slug_role' => 'admin', 'nama_modul' => 'mitra'],
             ['slug_role' => 'admin', 'nama_modul' => 'audit-logs'],
             ['slug_role' => 'admin', 'nama_modul' => 'users'],
-            ['slug_role' => 'admin', 'nama_modul' => 'roles'], // Izin rute roles
+            ['slug_role' => 'admin', 'nama_modul' => 'roles'],
             ['slug_role' => 'admin', 'nama_modul' => 'settings'],
 
             // --- ROLE: KEPALA SEKOLAH ---
@@ -198,6 +198,6 @@ class InitSeeder extends Seeder
         ];
         $this->db->table('role_permissions')->insertBatch($rolePermissionsData);
 
-        //echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend, Menu Dinamis, dan Keamanan Rute.\n";
+        echo "✅ Seeder selesai! Database sudah siap dengan data yang sesuai untuk Layout Frontend, Menu Dinamis, dan Keamanan Rute.\n";
     }
 }
