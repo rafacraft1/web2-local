@@ -4,14 +4,17 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use App\Models\RoleModel;
 
 class UserController extends BaseController
 {
     protected $userModel;
+    protected $roleModel;
 
     public function __construct()
     {
         $this->userModel = new UserModel();
+        $this->roleModel = new RoleModel();
     }
 
     public function index()
@@ -25,22 +28,28 @@ class UserController extends BaseController
 
     public function create()
     {
+        $adminExists = $this->userModel->where('role', 'admin')->countAllResults() > 0;
+
         return view('backend/users/create', [
-            'title' => 'Tambah User Baru'
+            'title'       => 'Tambah User Baru',
+            'roles'       => $this->roleModel->findAll(),
+            'adminExists' => $adminExists
         ]);
     }
 
     public function store()
     {
-        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'role']);
+        // [DIUBAH] Menangkap 'email' dari Form
+        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'email', 'role']);
         $password  = $this->request->getPost('password');
 
         if (empty($password)) {
             return redirect()->back()->withInput()->with('error', 'Password wajib diisi.');
         }
 
-        $inputData['password']  = password_hash($password, PASSWORD_DEFAULT);
-        $inputData['is_active'] = 1;
+        // [DIUBAH] Mengubah key menjadi 'password_hash' sesuai allowedFields Model
+        $inputData['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+        $inputData['is_active']     = 1;
 
         if (!$this->userModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
@@ -67,10 +76,14 @@ class UserController extends BaseController
         $user = $this->userModel->find($id);
         if (!$user) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
 
+        $adminExists = $this->userModel->where('role', 'admin')->where('id !=', $id)->countAllResults() > 0;
+
         return view('backend/users/edit', [
-            'title'  => 'Edit User',
-            'user'   => $user,
-            'safeId' => $safeId
+            'title'       => 'Edit User',
+            'user'        => $user,
+            'roles'       => $this->roleModel->findAll(),
+            'adminExists' => $adminExists,
+            'safeId'      => $safeId
         ]);
     }
 
@@ -82,12 +95,14 @@ class UserController extends BaseController
         $userLama = $this->userModel->find($id);
         if (!$userLama) return redirect()->to('panel/users')->with('error', 'Data tidak ditemukan.');
 
-        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'role']);
+        // [DIUBAH] Menangkap 'email' dari Form
+        $inputData = $this->request->getPost(['nama_lengkap', 'username', 'email', 'role']);
         $inputData['id'] = $id;
 
         $passwordBaru = $this->request->getPost('password');
         if (!empty($passwordBaru)) {
-            $inputData['password'] = password_hash($passwordBaru, PASSWORD_DEFAULT);
+            // [DIUBAH] Mengubah key menjadi 'password_hash'
+            $inputData['password_hash'] = password_hash($passwordBaru, PASSWORD_DEFAULT);
         }
 
         if (!$this->userModel->validate($inputData)) {

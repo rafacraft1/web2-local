@@ -3,50 +3,49 @@
 namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
-use App\Models\BeritaModel;
-use App\Models\GaleriModel;
-use App\Models\PesanModel;
-use App\Models\MitraModel;
-use App\Models\AuditLogModel;
-use App\Models\UserModel;
 
 class Dashboard extends BaseController
 {
     public function index()
     {
-        // Inisiasi Models
-        $beritaModel = new BeritaModel();
-        $galeriModel = new GaleriModel();
-        $pesanModel  = new PesanModel();
-        $mitraModel  = new MitraModel();
-        $auditModel  = new AuditLogModel();
-        $userModel   = new UserModel();
-
-        // 1. Ambil Statistik Ringkas menggunakan Model
-        $totalBerita = $beritaModel->where('status', 'published')->countAllResults();
-        $totalGaleri = $galeriModel->countAllResults();
-        $pesanBaru   = $pesanModel->where('is_read', 0)->countAllResults();
-        $totalMitra  = $mitraModel->countAllResults();
-
-        // 2. Ambil 5 Pesan Terbaru
-        $recentPesan = $pesanModel->orderBy('created_at', 'DESC')->limit(5)->find();
-
-        // 3. Ambil 5 Aktivitas Terakhir (Audit Log)
-        $recentLogs = $auditModel->orderBy('created_at', 'DESC')->limit(5)->find();
-
-        // 4. Data untuk Grafik: Menghitung jumlah pengguna berdasarkan Role
-        $usersByRole = $userModel->select('role, COUNT(id) as total')->groupBy('role')->find();
+        $role = session()->get('role');
 
         $data = [
-            'title'        => 'Dashboard | Panel Admin',
-            'total_berita' => $totalBerita,
-            'total_galeri' => $totalGaleri,
-            'pesan_baru'   => $pesanBaru,
-            'total_mitra'  => $totalMitra,
-            'recent_pesan' => $recentPesan,
-            'recent_logs'  => $recentLogs,
-            'users_role'   => $usersByRole
+            'title' => 'Dashboard Panel'
         ];
+
+        // ==========================================
+        // 1. STATISTIK BERITA (Bisa dilihat: Admin, Kepala Sekolah, Guru)
+        // ==========================================
+        if (in_array($role, ['admin', 'kepala-sekolah', 'guru'])) {
+            $beritaModel = new \App\Models\BeritaModel();
+            $data['total_berita'] = $beritaModel->countAllResults();
+        }
+
+        // ==========================================
+        // 2. STATISTIK GALERI (Bisa dilihat: Admin, Guru)
+        // ==========================================
+        if (in_array($role, ['admin', 'guru'])) {
+            $galeriModel = new \App\Models\GaleriModel();
+            $data['total_galeri'] = $galeriModel->countAllResults();
+        }
+
+        // ==========================================
+        // 3. STATISTIK PESAN MASUK (Bisa dilihat: Admin, Staff TU)
+        // ==========================================
+        if (in_array($role, ['admin', 'staff-tu'])) {
+            $pesanModel = new \App\Models\PesanModel();
+            // Hanya menghitung pesan yang belum dibaca (is_read = 0)
+            $data['pesan_baru'] = $pesanModel->where('is_read', 0)->countAllResults();
+        }
+
+        // ==========================================
+        // 4. STATISTIK USER (Hanya dilihat: Admin)
+        // ==========================================
+        if ($role === 'admin') {
+            $userModel = new \App\Models\UserModel();
+            $data['total_user'] = $userModel->countAllResults();
+        }
 
         return view('backend/dashboard', $data);
     }

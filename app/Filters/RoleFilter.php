@@ -12,36 +12,67 @@ class RoleFilter implements FilterInterface
     {
         $session = session();
 
+        // 1. Pastikan user sudah login
         if (!$session->get('isLoggedIn')) {
+            // Asumsi route login Anda adalah auth/login (Sesuaikan jika panel/login)
             return redirect()->to('panel/login')->with('error', 'Silakan login terlebih dahulu.');
         }
 
         $userRole = $session->get('role');
-        $uri = $request->getUri();
 
-        // Ambil segment 2 (contoh: dari /panel/settings ambil 'settings')
-        // Gunakan pengecekan getTotalSegments untuk mencegah error 'Out of bounds'
-        if ($uri->getTotalSegments() >= 2) {
-            $module = $uri->getSegment(2);
-        } else {
-            // Jika hanya mengakses /panel, asumsikan modulnya adalah dashboard
-            $module = 'dashboard';
+        // 2. Role 'admin' (Superadmin) bebas hambatan, bisa akses semuanya
+        if ($userRole === 'admin') {
+            return;
         }
 
-        // 3. Cek izin ke database (Tabel role_permissions)
+        // 3. Ambil URL yang sedang diakses
+        $uri = $request->getUri();
+        $segments = $uri->getSegments();
+        $baseModuleUrl = '';
+
+        // Kita ambil 2 segmen pertama saja (Misal: dari 'panel/users/create' kita cuma ambil 'panel/users')
+        if (count($segments) >= 2 && $segments[0] === 'panel') {
+            $baseModuleUrl = $segments[0] . '/' . $segments[1];
+        } elseif (count($segments) == 1 && $segments[0] === 'panel') {
+            $baseModuleUrl = 'panel/dashboard';
+        } else {
+            return; // Biarkan lolos jika bukan area /panel
+        }
+
+        // 4. Pengecualian (Whitelist): Semua role yang login pasti boleh akses halaman ini
+        $allowedRoutes = [
+            'panel/dashboard',
+            'panel/profile',
+            'panel/logout'
+        ];
+
+        if (in_array($baseModuleUrl, $allowedRoutes)) {
+            return;
+        }
+
+        // 5. PENGECEKAN DINAMIS KE DATABASE (Tahap Inti)
+        // Cek apakah 'panel/namamodul' ini ada diizinkan untuk Role user yang sedang login
         $db = \Config\Database::connect();
-        $hasAccess = $db->table('role_permissions')
-            ->where('slug_role', $userRole)
-            ->where('nama_modul', $module)
+        $hasAccess = $db->table('role_menu_access')
+            ->join('menus', 'menus.id = role_menu_access.menu_id')
+            ->where('role_menu_access.slug_role', $userRole)
+            ->where('menus.url', $baseModuleUrl)
             ->countAllResults();
 
-        if ($hasAccess === 0 && $userRole !== 'admin') {
-            return redirect()->back()->with('error', 'Anda tidak memiliki hak akses ke modul ini.');
+        // 6. Jika tidak ada izin di database, TENDANG KELUAR!
+        if ($hasAccess === 0) {
+            // Tangani jika request berasal dari AJAX (misal DataTables atau fetch API)
+            if ($request->isAJAX()) {
+                return \Config\Services::response()->setStatusCode(403)->setJSON(['error' => 'Keamanan: Anda tidak memiliki akses ke data ini.']);
+            }
+
+            // Tangani akses normal lewat ketik URL
+            return redirect()->to('panel/dashboard')->with('error', 'Keamanan Sistem: Anda tidak memiliki hak akses ke halaman tersebut.');
         }
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
-        // Tidak perlu melakukan apa-apa setelah request
+        // Tidak perlu diisi
     }
 }

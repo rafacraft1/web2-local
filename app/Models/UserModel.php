@@ -15,7 +15,8 @@ class UserModel extends Model
     protected $allowedFields    = [
         'nama_lengkap',
         'username',
-        'password',
+        'email',          // [BARU] Kolom email wajib ditambahkan agar bisa disimpan
+        'password_hash',  // [DIUBAH] Sesuai dengan nama kolom di Database
         'role',
         'avatar',
         'is_active'
@@ -25,10 +26,11 @@ class UserModel extends Model
     protected $updatedField  = 'updated_at';
 
     protected $validationRules = [
-        'id'           => 'permit_empty|is_natural_no_zero',
-        'nama_lengkap' => 'required|min_length[3]|max_length[100]',
-        'username'     => 'required|min_length[3]|max_length[30]|is_unique[users.username,id,{id}]',
-        'password'     => 'permit_empty|min_length[6]', // permit_empty digunakan saat update jika password tidak diubah
-        'role'         => 'required|in_list[admin,operator]',
+        'id'            => 'permit_empty|is_natural_no_zero',
+        'nama_lengkap'  => 'required|min_length[3]|max_length[100]',
+        'username'      => 'required|min_length[3]|max_length[30]|is_unique[users.username,id,{id}]',
+        'email'         => 'required|valid_email|is_unique[users.email,id,{id}]', // [BARU] Validasi Email
+        'password_hash' => 'permit_empty|min_length[6]', // [DIUBAH]
+        'role'          => 'required|is_not_unique[roles.slug_role]',
     ];
 }
