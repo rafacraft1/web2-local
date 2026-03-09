@@ -53,6 +53,7 @@
 # ENCRYPTION
 #--------------------------------------------------------------------
 
+# ini untuk mengaktifkan enckripsi php spark key:generate
 # encryption.key =
 
 #--------------------------------------------------------------------
