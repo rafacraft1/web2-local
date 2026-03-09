@@ -30,53 +30,49 @@ class BeritaController extends BaseController
         ]);
     }
 
-    public function store()
+public function store()
     {
-        // Validasi khusus base64 tetap di controller
+        // --- Task 4: Refactoring Mass Assignment Input ---
+        $inputData = $this->request->getPost(['title', 'excerpt', 'content', 'category', 'status']);
         $imageBase64 = $this->request->getPost('image_base64');
+        
         if (empty($imageBase64)) {
             return redirect()->back()->withInput()->with('error', 'Gambar sampul wajib diisi.');
         }
 
-        $slug = url_title($this->request->getPost('title'), '-', true);
-        $namaGambar  = $slug . '-' . time() . '.webp';
+        $inputData['slug']    = url_title($inputData['title'], '-', true);
+        $inputData['user_id'] = session()->get('user_id');
+        $namaGambar           = $inputData['slug'] . '-' . time() . '.webp';
+        $inputData['image']   = $namaGambar;
 
-        $data = [
-            'user_id'  => session()->get('user_id'),
-            'title'    => $this->request->getPost('title'),
-            'slug'     => $slug,
-            'excerpt'  => $this->request->getPost('excerpt'),
-            'content'  => $this->request->getPost('content'),
-            'category' => $this->request->getPost('category'),
-            'status'   => $this->request->getPost('status'),
-            'image'    => $namaGambar
-        ];
-
-        // --- Task 2.3: Menggunakan Database Transaction ---
-        $this->beritaModel->db->transStart();
-
-        // Menyimpan data. Jika gagal validasi dari Model, ambil errornya
-        if (!$this->beritaModel->insert($data)) {
+        // Validasi Model (sebelum upload gambar untuk menghindari file sampah jika validasi teks gagal)
+        if (!$this->beritaModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->beritaModel->errors());
         }
 
-        $insertId = $this->beritaModel->getInsertID();
-
-        // --- PROSES UPLOAD BASE64 ---
+        // --- Task 2: Pindahkan Proses Upload File ke Luar Transaksi Database ---
         $uploadProses = $this->processBase64Image($imageBase64, 'berita', $namaGambar);
-
         if (!$uploadProses['success']) {
-            $this->beritaModel->db->transRollback(); // Batalkan insert DB jika gambar gagal diupload
             return redirect()->back()->withInput()->with('error', $uploadProses['error']);
         }
 
-        log_activity('CREATE', 'berita', $insertId, null, ['title' => $data['title']]);
+        // --- Memulai Transaksi Database ---
+        $this->beritaModel->db->transStart();
+        
+        $this->beritaModel->insert($inputData);
+        $insertId = $this->beritaModel->getInsertID();
 
         $this->beritaModel->db->transComplete();
 
+        // --- Task 6: Pengecekan Eksekusi pada Log Aktivitas ---
         if ($this->beritaModel->db->transStatus() === false) {
+            // Jika DB gagal, hapus gambar yang sudah terlanjur diupload
+            $this->hapusGambarFisik($namaGambar);
             return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem saat menyimpan data.');
         }
+
+        // Catat log jika transaksi db sukses
+        log_activity('CREATE', 'berita', $insertId, null, ['title' => $inputData['title']]);
 
         return redirect()->to('panel/berita')->with('success', 'Berita berhasil diterbitkan.');
     }
@@ -96,7 +92,7 @@ class BeritaController extends BaseController
         ]);
     }
 
-    public function update($safeId = null)
+public function update($safeId = null)
     {
         $id = $this->decryptId($safeId);
         if (!$id) return redirect()->to('panel/berita')->with('error', 'Akses ditolak.');
@@ -104,51 +100,60 @@ class BeritaController extends BaseController
         $beritaLama = $this->beritaModel->find($id);
         if (!$beritaLama) return redirect()->to('panel/berita')->with('error', 'Data tidak ditemukan.');
 
-        $slug = url_title($this->request->getPost('title'), '-', true);
-        $namaGambarFinal = $beritaLama['image'];
+        // --- Task 4: Mass Assignment Input ---
+        $inputData = $this->request->getPost(['title', 'excerpt', 'content', 'category', 'status']);
+        $inputData['id']   = $id; // ID untuk validasi is_unique
+        $inputData['slug'] = url_title($inputData['title'], '-', true);
+        
         $imageBase64 = $this->request->getPost('image_base64');
+        $namaGambarFinal = $beritaLama['image']; // Default pakai gambar lama
 
-        $data = [
-            'id'       => $id, // ID disertakan agar validasi is_unique berfungsi benar saat update
-            'title'    => $this->request->getPost('title'),
-            'slug'     => $slug,
-            'excerpt'  => $this->request->getPost('excerpt'),
-            'content'  => $this->request->getPost('content'),
-            'category' => $this->request->getPost('category'),
-            'status'   => $this->request->getPost('status'),
-            'image'    => $namaGambarFinal
-        ];
-
-        $this->beritaModel->db->transStart();
-
-        if (!$this->beritaModel->update($id, $data)) {
+        // Validasi Model awal (cek teks dll sebelum proses gambar)
+        // Set validasi khusus untuk bypass rule image jika tidak ada gambar baru
+        if (!$this->beritaModel->validate($inputData)) {
             return redirect()->back()->withInput()->with('errors', $this->beritaModel->errors());
         }
 
-        // --- PROSES JIKA ADA GAMBAR BARU ---
+        $gambarBaruBerhasilUpload = false;
+
+        // --- Task 2: Pindahkan I/O Keluar Transaksi DB ---
         if (!empty($imageBase64)) {
-            $namaGambarBaru = $slug . '-' . time() . '.webp';
+            $namaGambarBaru = $inputData['slug'] . '-' . time() . '.webp';
             $uploadProses   = $this->processBase64Image($imageBase64, 'berita', $namaGambarBaru);
 
             if (!$uploadProses['success']) {
-                $this->beritaModel->db->transRollback();
                 return redirect()->back()->withInput()->with('error', $uploadProses['error']);
             }
-
-            // Task 2.2: Gunakan fungsi DRY untuk hapus gambar fisik
-            $this->hapusGambarFisik($beritaLama['image']);
-
-            // Update nama gambar yang baru secara spesifik
-            $this->beritaModel->update($id, ['image' => $namaGambarBaru]);
+            
+            // Task 1: Update array data dengan gambar baru, BUKAN query terpisah
+            $namaGambarFinal = $namaGambarBaru;
+            $gambarBaruBerhasilUpload = true;
         }
 
-        log_activity('UPDATE', 'berita', $id, ['title' => $beritaLama['title']], ['title' => $data['title']]);
+        $inputData['image'] = $namaGambarFinal;
 
+        // --- Transaksi Database ---
+        $this->beritaModel->db->transStart();
+        
+        $this->beritaModel->update($id, $inputData);
+        
         $this->beritaModel->db->transComplete();
 
+        // --- Task 6: Pengecekan Transaksi DB ---
         if ($this->beritaModel->db->transStatus() === false) {
+            // Rollback gambar fisik BILA transaksi DB gagal tapi gambar baru sempat terupload
+            if ($gambarBaruBerhasilUpload) {
+                $this->hapusGambarFisik($namaGambarFinal);
+            }
             return redirect()->back()->withInput()->with('error', 'Gagal memperbarui data.');
         }
+
+        // Jika sukses dan ada gambar baru, hapus gambar lama
+        if ($gambarBaruBerhasilUpload) {
+            $this->hapusGambarFisik($beritaLama['image']);
+        }
+
+        log_activity('UPDATE', 'berita', $id, ['title' => $beritaLama['title']], ['title' => $inputData['title']]);
 
         return redirect()->to('panel/berita')->with('success', 'Berita berhasil diperbarui.');
     }
