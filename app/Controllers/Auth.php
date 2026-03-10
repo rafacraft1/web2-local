@@ -25,8 +25,11 @@ class Auth extends BaseController
         $throttler = \Config\Services::throttler();
         $ipAddress = $this->request->getIPAddress();
 
-        // Membatasi 5 request per menit (60 detik) untuk IP yang sama
-        if ($throttler->check("login_attempt_{$ipAddress}", 5, MINUTE) === false) {
+        // PERBAIKAN: Sanitasi IP Address untuk menghilangkan karakter titik dua (:) pada IPv6 dan titik (.) pada IPv4
+        $safeIp = str_replace([':', '.'], '_', $ipAddress);
+
+        // Membatasi 5 request per menit (60 detik) untuk IP yang sama menggunakan safeIp
+        if ($throttler->check("login_attempt_{$safeIp}", 5, MINUTE) === false) {
             return redirect()->back()->with('error', 'Terlalu banyak percobaan login gagal. Silakan coba lagi dalam 1 menit.');
         }
 
