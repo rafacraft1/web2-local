@@ -119,6 +119,9 @@ class Setting extends BaseController
             return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan saat memperbarui pengaturan.');
         }
 
+        // [OPTIMASI] Hapus cache agar frontend langsung memuat perubahan pengaturan terbaru
+        \Config\Services::cache()->delete('web_settings');
+
         // 3. Task 6: Simpan Log Aktivitas setelah transaksi DB sukses
         if (!empty($newValuesLog)) {
             log_activity('UPDATE', 'settings', null, $oldValuesLog, $newValuesLog);
@@ -165,6 +168,9 @@ class Setting extends BaseController
                     'csrfHash' => csrf_hash()
                 ]);
             }
+
+            // [OPTIMASI] Hapus cache pengaturan saat toggle maintenance mode
+            \Config\Services::cache()->delete('web_settings');
 
             // Task 6: Log aktivitas dipindah ke sini
             log_activity('UPDATE', 'settings', null, ['maintenance_mode' => $existing['setting_value'] ?? '0'], ['maintenance_mode' => $status]);

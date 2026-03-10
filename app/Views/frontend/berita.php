@@ -36,7 +36,7 @@
                 foreach ($berita as $b) : ?>
                     <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="<?= $delay ?>">
                         <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden card-hover-effect">
-                            <img src="<?= base_url('uploads/berita/' . $b['image']) ?>" class="card-img-top object-fit-cover" alt="<?= esc($b['title']) ?>" style="height: 220px;">
+                            <img src="<?= base_url('uploads/berita/' . $b['image']) ?>" class="card-img-top object-fit-contain bg-light" alt="<?= esc($b['title']) ?>" style="height: 220px; width: 100%; padding: 0.5rem;" loading="lazy">
                             <div class="card-body p-4 d-flex flex-column">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <span class="badge bg-soft-primary text-primary-custom px-2 py-1"><?= esc($b['category']) ?></span>
@@ -81,47 +81,4 @@
     </div>
 </section>
 
-<?= $this->endSection() ?>
-
-<?= $this->section('extra_scripts') ?>
-<style>
-    .card-hover-effect {
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .card-hover-effect:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
-    }
-
-    .text-hover-primary:hover {
-        color: var(--bs-primary) !important;
-    }
-
-    /* Styling Paginasi Bawaan CodeIgniter */
-    .custom-pagination ul.pagination {
-        margin-bottom: 0;
-        gap: 5px;
-    }
-
-    .custom-pagination ul.pagination li.active a {
-        background-color: var(--bs-primary);
-        border-color: var(--bs-primary);
-        color: white;
-    }
-
-    .custom-pagination ul.pagination li a {
-        color: var(--bs-primary);
-        border-radius: 8px;
-        padding: 8px 16px;
-        font-weight: 600;
-        border: 1px solid #dee2e6;
-        transition: 0.2s;
-    }
-
-    .custom-pagination ul.pagination li a:hover {
-        background-color: #f8f9fa;
-        color: #0f172a;
-    }
-</style>
 <?= $this->endSection() ?>

@@ -39,7 +39,19 @@ class BeritaModel extends Model
     // --- Task 3.1 & Task 5: Return Type Declarations & Hindari Hardcode Nama Tabel ---
     public function getBeritaWithAuthor(): array
     {
-        return $this->select($this->table . '.*, users.nama_lengkap AS penulis')
+        // [OPTIMASI] Hindari penggunaan `.*`. Spesifikasikan kolom yang benar-benar 
+        // dibutuhkan saat menampilkan daftar list berita di tabel panel admin untuk menghemat RAM.
+        $selectColumns = [
+            $this->table . '.id',
+            $this->table . '.title',
+            $this->table . '.slug',
+            $this->table . '.category',
+            $this->table . '.status',
+            $this->table . '.created_at',
+            'users.nama_lengkap AS penulis'
+        ];
+
+        return $this->select(implode(', ', $selectColumns))
             ->join('users', 'users.id = ' . $this->table . '.user_id', 'left')
             ->orderBy($this->table . '.created_at', 'DESC')
             ->findAll();

@@ -74,6 +74,7 @@ class InitializeTableSystem extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('status');
         $this->forge->addKey('category');
+        $this->forge->addKey('created_at'); // <-- [OPTIMASI] Index ditambahkan di sini
         $this->forge->addForeignKey('user_id', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->createTable('berita');
 
@@ -93,6 +94,7 @@ class InitializeTableSystem extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('type');
+        $this->forge->addKey('created_at'); // <-- [OPTIMASI] Index ditambahkan di sini
         $this->forge->addForeignKey('user_id', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->createTable('galeri');
 

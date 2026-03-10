@@ -14,13 +14,24 @@ class Home extends BaseController
 
     public function __construct()
     {
-        // Ambil data pengaturan web khusus untuk layout frontend
-        $db = \Config\Database::connect();
-        $rawSettings = $db->table('settings')->get()->getResultArray();
+        // [OPTIMASI] Panggil layanan Cache CodeIgniter
+        $cache = \Config\Services::cache();
 
-        $this->settings = [];
-        foreach ($rawSettings as $row) {
-            $this->settings[$row['setting_key']] = $row['setting_value'];
+        // Coba ambil data pengaturan dari cache dengan nama 'web_settings'
+        $this->settings = $cache->get('web_settings');
+
+        // Jika cache kosong (belum ada atau sudah dihapus), baru query ke database
+        if ($this->settings === null) {
+            $db = \Config\Database::connect();
+            $rawSettings = $db->table('settings')->get()->getResultArray();
+
+            $this->settings = [];
+            foreach ($rawSettings as $row) {
+                $this->settings[$row['setting_key']] = $row['setting_value'];
+            }
+
+            // Simpan hasil ke cache selama 30 hari (2592000 detik)
+            $cache->save('web_settings', $this->settings, 2592000);
         }
     }
 
@@ -35,10 +46,14 @@ class Home extends BaseController
         return view('frontend/home', [
             'title'    => 'Beranda | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif Nusantara'),
             'settings' => $this->settings,
-            'jurusan'  => $jurusanModel->findAll(),
-            'galeri'   => $galeriModel->orderBy('created_at', 'DESC')->limit(3)->find(),
-            'berita'   => $beritaModel->where('status', 'published')->orderBy('created_at', 'DESC')->limit(3)->find(),
-            'mitra'    => $mitraModel->findAll()
+            // [OPTIMASI] Hanya ambil kolom yang tampil di beranda (menghindari text/description yang memakan memori)
+            'jurusan'  => $jurusanModel->select('id, name, slug, icon, short_desc')->findAll(),
+            'galeri'   => $galeriModel->select('id, title, image, type')->orderBy('created_at', 'DESC')->limit(3)->find(),
+            'berita'   => $beritaModel->select('id, title, slug, excerpt, image, category, created_at')
+                ->where('status', 'published')
+                ->orderBy('created_at', 'DESC')
+                ->limit(3)->find(),
+            'mitra'    => $mitraModel->select('id, nama, logo, url')->findAll()
         ]);
     }
 

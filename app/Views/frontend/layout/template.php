@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $title ?? ($settings['nama_web'] ?? 'SMK Kreatif Nusantara') ?></title>
 
+    <meta name="description" content="<?= esc($meta_desc ?? $settings['footer_desc'] ?? 'Mencetak generasi unggul yang siap kerja, berkarakter, dan memiliki jiwa wirausaha di era digital.') ?>">
+    <meta property="og:title" content="<?= esc($title ?? ($settings['nama_web'] ?? 'SMK Kreatif Nusantara')) ?>">
+    <meta property="og:description" content="<?= esc($meta_desc ?? $settings['footer_desc'] ?? 'Mencetak generasi unggul yang siap kerja, berkarakter, dan memiliki jiwa wirausaha di era digital.') ?>">
+    <meta property="og:image" content="<?= isset($meta_image) ? $meta_image : base_url(!empty($settings['logo_image']) ? 'uploads/logo/' . $settings['logo_image'] : 'assets/logo-brand.webp') ?>">
+    <meta property="og:url" content="<?= current_url() ?>">
+    <meta property="og:type" content="website">
+
     <link rel="shortcut icon" href="<?= base_url(!empty($settings['logo_image']) ? 'uploads/logo/' . $settings['logo_image'] : 'assets/logo-brand.webp') ?>" type="image/x-icon">
     <link rel="apple-touch-icon" href="<?= base_url(!empty($settings['logo_image']) ? 'uploads/logo/' . $settings['logo_image'] : 'assets/logo-brand.webp') ?>">
 
@@ -31,7 +38,7 @@
                     <span class="text-primary-custom"><?= $settings['logo_text_highlight'] ?? 'SMK' ?></span> <span class="text-dark"><?= $settings['logo_text_normal'] ?? 'Kreatif.' ?></span>
                 </span>
             </a>
-            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -52,10 +59,10 @@
 
     <?= $this->renderSection('content') ?>
 
-    <a href="https://wa.me/<?= $settings['whatsapp'] ?? '6281234567890' ?>" target="_blank" id="btnWhatsApp">
+    <a href="https://wa.me/<?= $settings['whatsapp'] ?? '6281234567890' ?>" target="_blank" id="btnWhatsApp" aria-label="Hubungi kami via WhatsApp">
         <i class="bi bi-whatsapp"></i>
     </a>
-    <button id="btnBackToTop"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="btnBackToTop" aria-label="Kembali ke atas"><i class="fa-solid fa-arrow-up"></i></button>
 
     <footer class="bg-dark text-white pt-6 pb-4 mt-auto section-padding">
         <div class="container">
@@ -64,10 +71,10 @@
                     <h3 class="fw-extrabold mb-3"><span class="text-accent"><?= $settings['logo_text_highlight'] ?? 'SMK' ?></span> <?= $settings['logo_text_normal'] ?? 'Kreatif.' ?></h3>
                     <p class="text-white-50 mb-4"><?= $settings['footer_desc'] ?? 'Mencetak generasi unggul yang siap kerja, berkarakter, dan memiliki jiwa wirausaha di era digital.' ?></p>
                     <div class="d-flex gap-3">
-                        <a href="<?= $settings['facebook'] ?? '#' ?>" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-facebook"></i></a>
-                        <a href="<?= $settings['instagram'] ?? '#' ?>" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-instagram"></i></a>
-                        <a href="<?= $settings['tiktok'] ?? '#' ?>" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-tiktok"></i></a>
-                        <a href="<?= $settings['youtube'] ?? '#' ?>" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-youtube"></i></a>
+                        <a href="<?= $settings['facebook'] ?? '#' ?>" aria-label="Kunjungi Facebook Kami" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-facebook"></i></a>
+                        <a href="<?= $settings['instagram'] ?? '#' ?>" aria-label="Kunjungi Instagram Kami" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-instagram"></i></a>
+                        <a href="<?= $settings['tiktok'] ?? '#' ?>" aria-label="Kunjungi TikTok Kami" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-tiktok"></i></a>
+                        <a href="<?= $settings['youtube'] ?? '#' ?>" aria-label="Kunjungi YouTube Kami" class="btn btn-outline-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height:40px;"><i class="bi bi-youtube"></i></a>
                     </div>
                 </div>
 

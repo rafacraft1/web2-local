@@ -80,7 +80,7 @@
                 foreach ($jurusan as $j) : ?>
                     <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="<?= $delay ?>">
                         <div class="jurusan-card rounded-4 overflow-hidden position-relative h-100 shadow-sm bg-white">
-                            <img src="<?= base_url('uploads/jurusan/' . $j['image']) ?>" class="w-100 card-img-custom object-fit-cover" alt="<?= esc($j['name']) ?>" style="height: 250px;">
+                            <img src="<?= base_url('uploads/jurusan/' . $j['image']) ?>" class="w-100 card-img-custom object-fit-cover" alt="<?= esc($j['name']) ?>" style="height: 250px;" loading="lazy">
                             <div class="jurusan-content p-4 position-relative bg-white">
                                 <div class="icon-jurusan bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mb-3 shadow">
                                     <?= esc($j['icon']) ?>
@@ -125,7 +125,7 @@
                 foreach ($galeri as $g) : ?>
                     <div class="col-md-6 col-lg-4" data-aos="zoom-in" data-aos-delay="<?= $delay ?>">
                         <div class="karya-item rounded-4 overflow-hidden position-relative shadow-sm" style="height: 300px;">
-                            <img src="<?= base_url('uploads/galeri/' . $g['image']) ?>" alt="<?= esc($g['title']) ?>" class="w-100 h-100 object-fit-cover">
+                            <img src="<?= base_url('uploads/galeri/' . $g['image']) ?>" alt="<?= esc($g['title']) ?>" class="w-100 h-100 object-fit-cover" loading="lazy">
                             <div class="karya-overlay d-flex flex-column justify-content-end p-4 text-white">
                                 <h5 class="fw-bold mb-1"><?= esc($g['title']) ?></h5>
                                 <small><?= esc($g['description']) ?></small>
@@ -167,7 +167,7 @@
                 foreach ($berita as $b) : ?>
                     <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="<?= $delay ?>">
                         <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
-                            <img src="<?= base_url('uploads/berita/' . $b['image']) ?>" class="card-img-top object-fit-cover" alt="<?= esc($b['title']) ?>" style="height: 220px;">
+                            <img src="<?= base_url('uploads/berita/' . $b['image']) ?>" class="card-img-top object-fit-contain bg-light" alt="<?= esc($b['title']) ?>" style="height: 220px; width: 100%; padding: 0.5rem;" loading="lazy">
                             <div class="card-body p-4">
                                 <span class="badge bg-soft-primary text-primary-custom mb-2 px-2 py-1"><?= esc($b['category']) ?></span>
                                 <h5 class="card-title fw-bold"><?= esc($b['title']) ?></h5>
@@ -197,7 +197,7 @@
                 <?php for ($i = 0; $i < 2; $i++) : ?>
                     <?php foreach ($mitra as $m) : ?>
                         <div class="mx-5 d-flex align-items-center gap-3">
-                            <img src="<?= base_url('uploads/mitra/' . $m['logo']) ?>" alt="<?= esc($m['nama'] ?? '') ?>" height="45" class="object-fit-contain">
+                            <img src="<?= base_url('uploads/mitra/' . $m['logo']) ?>" alt="<?= esc($m['nama'] ?? '') ?>" height="45" class="object-fit-contain" loading="lazy">
                             <h4 class="text-muted fw-bold mb-0"><?= esc($m['nama'] ?? '') ?></h4>
                         </div>
                     <?php endforeach; ?>

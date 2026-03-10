@@ -46,9 +46,9 @@
                         <div class="mt-5 pt-4 border-top d-flex align-items-center justify-content-between">
                             <span class="fw-semibold text-dark">Bagikan artikel ini:</span>
                             <div class="d-flex gap-2">
-                                <a href="https://www.facebook.com/sharer/sharer.php?u=<?= current_url() ?>" target="_blank" class="btn btn-outline-primary btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-facebook"></i></a>
-                                <a href="https://twitter.com/intent/tweet?url=<?= current_url() ?>&text=<?= urlencode($berita['title']) ?>" target="_blank" class="btn btn-outline-info btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-twitter-x"></i></a>
-                                <a href="https://api.whatsapp.com/send?text=<?= urlencode($berita['title'] . ' - ' . current_url()) ?>" target="_blank" class="btn btn-outline-success btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-whatsapp"></i></a>
+                                <a href="https://www.facebook.com/sharer/sharer.php?u=<?= current_url() ?>" target="_blank" aria-label="Bagikan ke Facebook" class="btn btn-outline-primary btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-facebook"></i></a>
+                                <a href="https://twitter.com/intent/tweet?url=<?= current_url() ?>&text=<?= urlencode($berita['title']) ?>" target="_blank" aria-label="Bagikan ke X Twitter" class="btn btn-outline-info btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-twitter-x"></i></a>
+                                <a href="https://api.whatsapp.com/send?text=<?= urlencode($berita['title'] . ' - ' . current_url()) ?>" target="_blank" aria-label="Bagikan ke WhatsApp" class="btn btn-outline-success btn-sm rounded-circle" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;"><i class="bi bi-whatsapp"></i></a>
                             </div>
                         </div>
                     </div>
@@ -65,7 +65,7 @@
                         <?php if (!empty($recent_berita)) : ?>
                             <?php foreach ($recent_berita as $rb) : ?>
                                 <div class="d-flex gap-3 align-items-center">
-                                    <img src="<?= base_url('uploads/berita/' . esc($rb['image'], 'url')) ?>" alt="<?= esc($rb['title'], 'attr') ?>" class="rounded-3 object-fit-cover shadow-sm" style="width: 80px; height: 80px; flex-shrink: 0;">
+                                    <img src="<?= base_url('uploads/berita/' . esc($rb['image'], 'url')) ?>" alt="<?= esc($rb['title'], 'attr') ?>" class="rounded-3 object-fit-cover shadow-sm" style="width: 80px; height: 80px; flex-shrink: 0;" loading="lazy">
                                     <div>
                                         <small class="text-primary-custom fw-semibold mb-1 d-block"><?= esc($rb['category']) ?></small>
                                         <h6 class="fw-bold mb-1 lh-sm" style="font-size: 0.95rem;">
@@ -91,24 +91,4 @@
     </div>
 </section>
 
-<?= $this->endSection() ?>
-
-<?= $this->section('extra_scripts') ?>
-<style>
-    .article-content img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-    }
-
-    .article-content iframe {
-        max-width: 100%;
-        border-radius: 8px;
-    }
-
-    .text-hover-primary:hover {
-        color: var(--bs-primary) !important;
-    }
-</style>
 <?= $this->endSection() ?>
