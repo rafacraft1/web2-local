@@ -47,7 +47,7 @@ class Home extends BaseController
             'title'    => 'Beranda | ' . ($this->settings['nama_web'] ?? 'SMK Kreatif Nusantara'),
             'settings' => $this->settings,
             // [OPTIMASI] Hanya ambil kolom yang tampil di beranda (menghindari text/description yang memakan memori)
-            'jurusan'  => $jurusanModel->select('id, name, slug, icon, short_desc')->findAll(),
+            'jurusan'  => $jurusanModel->select('id, name, slug, icon, short_desc, image')->findAll(),
             'galeri'   => $galeriModel->select('id, title, image, type')->orderBy('created_at', 'DESC')->limit(3)->find(),
             'berita'   => $beritaModel->select('id, title, slug, excerpt, image, category, created_at')
                 ->where('status', 'published')
